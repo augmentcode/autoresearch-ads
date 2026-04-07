@@ -27,49 +27,74 @@ Each cycle follows these steps in order:
 
 Make MCP queries to get current campaign performance. Include conversion fields in every query.
 
-**Query A — Structure** (campaigns + ad groups):
+**All data is pulled per-campaign to prevent MCP response truncation.** A single bulk query across all campaigns silently drops data.
 
-Call `search` on Google Ads MCP twice:
+Initialize partial file directory:
 
-1. Resource: `campaign`
-   - Fields from `config.yaml` → `mcp_fields.campaign`
-   - Conditions: `campaign.status = 'ENABLED'`, date range from config, `metrics.impressions > 0`, campaign name filter from config
-   - Write full response to `data/raw-structure.json` under key `"campaigns"`
+```bash
+mkdir -p data/partials
+```
 
-2. Resource: `ad_group`
-   - Fields from `config.yaml` → `mcp_fields.ad_group`
-   - Same conditions (add `ad_group.status = 'ENABLED'`)
-   - Append to `data/raw-structure.json` under key `"ad_groups"`
+**FOR each campaign** in the `campaigns` list from config.yaml:
 
-**Query B — Queries** (keywords + search terms):
+Print: `📡 [{i}/{total}] Fetching: {campaign_name}`
 
-1. Resource: `keyword_view`
-   - Fields from `config.yaml` → `mcp_fields.keyword`
-   - Same campaign/date conditions, `metrics.impressions > 0`
-   - Write to `data/raw-queries.json` under key `"keywords"`
+1. **Structure** — campaign + ad group metrics
+   - Query `campaign` resource with `campaign.name = '{campaign_name}'`
+     - Fields from `config.yaml` → `mcp_fields.campaign`
+     - Conditions: `campaign.status = 'ENABLED'`, date range, `metrics.impressions > 0`
+   - Query `ad_group` resource with `campaign.name = '{campaign_name}'`
+     - Fields from `config.yaml` → `mcp_fields.ad_group`
+     - Conditions: `ad_group.status = 'ENABLED'`, date range, `metrics.impressions > 0`
+   - Write to `data/partials/{campaign_name}-structure.json`:
+     ```json
+     {"campaigns": [...], "ad_groups": [...]}
+     ```
 
-2. Resource: `search_term_view`
-   - Fields from `config.yaml` → `mcp_fields.search_term`
-   - Same conditions, `metrics.impressions > 10`
-   - Append to `data/raw-queries.json` under key `"search_terms"`
+2. **Queries** — keywords + search terms
+   - Query `keyword_view` with `campaign.name = '{campaign_name}'`
+     - Fields from `config.yaml` → `mcp_fields.keyword`
+     - Conditions: date range, `metrics.impressions > 0`
+   - Query `search_term_view` with `campaign.name = '{campaign_name}'`
+     - Fields from `config.yaml` → `mcp_fields.search_term`
+     - Conditions: date range, `metrics.impressions > 10`
+   - Write to `data/partials/{campaign_name}-queries.json`:
+     ```json
+     {"keywords": [...], "search_terms": [...]}
+     ```
 
-**Query C — Assets** (headline + description performance):
+3. **Assets** — headline + description performance
+   - Query `ad_group_ad_asset_view` with `campaign.name = '{campaign_name}'`
+     - Fields from `config.yaml` → `mcp_fields.asset`
+     - Conditions: date range, `metrics.impressions > 0`
+   - Write to `data/partials/{campaign_name}-assets.json`:
+     ```json
+     {"assets": [...]}
+     ```
 
-1. Resource: `ad_group_ad_asset_view`
-   - Fields from `config.yaml` → `mcp_fields.asset`
-   - Same campaign/date conditions, `metrics.impressions > 0`
-   - Write to `data/raw-assets.json`
+Print: `  ✓ {campaign_name} done ({N} assets, {M} keywords, {P} search terms)`
+
+**END FOR**
+
+**Aggregate** — After ALL campaigns are fetched, merge the partial files:
+
+```bash
+cd ~/autoresearch-ads && python3 aggregate.py
+```
+
+This reads all `data/partials/*-structure.json`, `*-queries.json`, and `*-assets.json` files and produces:
+- `data/raw-structure.json` — all campaigns + ad groups merged
+- `data/raw-queries.json` — all keywords + search terms merged
+- `data/raw-assets.json` — all assets merged
 
 **Date range**: Always compute explicit YYYY-MM-DD dates from config. Never use date literals like `LAST_7_DAYS`. Strip hyphens from customer_id before MCP calls.
-
-**Campaign filter**: Build `campaign.name IN ('name1', 'name2', ...)` from the `campaigns` list in config.yaml.
 
 ### Step 2: Compress
 
 Run the compression script:
 
 ```bash
-cd ~/autoresearch-ads && python snapshot.py
+cd ~/autoresearch-ads && python3 snapshot.py
 ```
 
 This reads the 3 raw files and produces `data/snapshot.json`. Archive the snapshot:
@@ -146,15 +171,43 @@ Write proposals to `copy.json`:
 
 Git commit: `cycle N: propose copy changes`
 
-### Step 6: Deploy
+### Step 6: Review Gate
 
-For each proposal in `copy.json`, use the Google Ads MCP to:
+**STOP here and present your proposals to the human.** Print a clear summary:
+
+```
+═══════════════════════════════════════════════════
+  PROPOSALS READY FOR REVIEW — Cycle N
+═══════════════════════════════════════════════════
+
+  [For each proposal:]
+  AD GROUP: claude_code
+  REPLACE:  "Old Headline Text" (conv_rate: 0.15%)
+  WITH:     "New Headline Text" (27 chars)
+  WHY:      Your hypothesis
+
+  ───────────────────────────────────────────────
+  Total: N proposals across M ad groups
+═══════════════════════════════════════════════════
+```
+
+Wait for the human to respond. They will either:
+- **Approve all**: proceed to Step 7 (Deploy)
+- **Approve some**: they'll tell you which ones. Deploy only those.
+- **Reject all**: skip Step 7, go straight to Step 8 (Log). Log proposals with status `"rejected"` instead of `"launched"`.
+- **Request changes**: revise the proposals and present again.
+
+Do NOT proceed to deployment without explicit human approval.
+
+### Step 7: Deploy
+
+For each **approved** proposal in `copy.json`, use the Google Ads MCP to:
 1. Add the new asset (headline or description) to the relevant ad group.
 2. If replacing an underperformer, pause or remove the original asset.
 
 Log each action. If an MCP write fails, note the failure and continue with remaining proposals.
 
-### Step 7: Log
+### Step 8: Log
 
 1. **experiments.jsonl** — Append one entry per deployed proposal:
 ```json
@@ -186,7 +239,17 @@ cycle	date	conv_rate	cost_per_conv	assets_deployed	winners	losers	status	descrip
 
 Git commit: `cycle N: deploy + log results`
 
-### Step 8: Stop
+### Step 9: Notify
+
+Send a Slack notification with the cycle summary:
+
+```bash
+cd ~/autoresearch-ads && python3 notify.py
+```
+
+This reads `snapshot.json`, `results.tsv`, and `experiments.jsonl` to build a summary message. Requires `SLACK_WEBHOOK_URL` in `.env`. If not set, the notification is silently skipped — the cycle still succeeds.
+
+### Step 10: Stop
 
 Print a cycle summary:
 
@@ -252,6 +315,6 @@ Everything else. There are no prescribed frameworks, angles, styles, or strategi
 
 ## NEVER STOP
 
-Once the daily cycle begins (after setup), do NOT pause to ask the human if you should continue. Complete all 8 steps. The human may be away from their computer. Run the full cycle autonomously. If an MCP query fails, retry once. If it fails again, log the failure and continue with what you have.
+Once the daily cycle begins (after setup), do NOT pause to ask the human if you should continue. Complete all steps — but always stop at Step 6 (Review Gate) for human approval before deploying. The human may be away from their computer. Run the full cycle autonomously. If an MCP query fails, retry once. If it fails again, log the failure and continue with what you have.
 
 Between cycles (i.e., when you've completed Step 8), you stop. The human or a scheduler triggers the next cycle.
