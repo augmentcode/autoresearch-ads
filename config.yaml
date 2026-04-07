@@ -1,0 +1,137 @@
+campaign: intent-search-ads
+platform: google_search
+
+data_source:
+  type: mcp
+  customer_id: "9232939339"
+  date_range: last_7_days   # last_7_days | last_14_days | last_30_days | custom
+  # start_date: "2026-04-01"
+  # end_date: "2026-04-07"
+
+# Campaign names to filter MCP queries
+campaigns:
+  - gg_emea_dg_search_competitor_intent
+  - gg_emea_dg_search_competitor_intent_claude
+  - gg_emea_dg_search_competitor_intent_gpt54
+  - gg_emea_dg_search_generic_intent
+  - gg_nam_dg_search_competitor_intent
+  - gg_nam_dg_search_competitor_intent_claude
+  - gg_nam_dg_search_competitor_intent_gpt54
+  - gg_nam_dg_search_generic_intent
+
+constraints:
+  headline_max_chars: 30
+  description_max_chars: 90
+
+metrics:
+  primary: conversion_rate    # conversions / clicks
+  secondary: cost_per_conversion  # cost / conversions
+
+thresholds:
+  winner: 0.20       # >= 20% improvement in conversion_rate
+  loser: -0.20       # >= 20% decline in conversion_rate
+  min_impressions: 100
+
+ad_groups:
+  claude_code:
+    campaign_type: competitor
+    intent: navigational
+  sdd:
+    campaign_type: generic
+    intent: methodology
+  ralph:
+    campaign_type: competitor
+    intent: competitor
+  gastown_ai:
+    campaign_type: competitor
+    intent: competitor
+  orchestration:
+    campaign_type: generic
+    intent: capability
+  coding_agent:
+    campaign_type: generic
+    intent: capability
+  worktrees:
+    campaign_type: generic
+    intent: technical
+  conductor:
+    campaign_type: competitor
+    intent: competitor
+  ade:
+    campaign_type: generic
+    intent: category
+  developer_tools:
+    campaign_type: generic
+    intent: capability
+  intent:
+    campaign_type: generic
+    intent: methodology
+  app_builder:
+    campaign_type: generic
+    intent: capability
+
+# MCP query fields — used by program.md to build queries
+mcp_fields:
+  campaign:
+    - campaign.name
+    - campaign.id
+    - campaign.status
+    - campaign.bidding_strategy_type
+    - metrics.impressions
+    - metrics.clicks
+    - metrics.ctr
+    - metrics.cost_micros
+    - metrics.average_cpc
+    - metrics.conversions
+    - metrics.conversions_value
+    - metrics.cost_per_conversion
+    - metrics.search_impression_share
+    - metrics.search_budget_lost_impression_share
+    - metrics.search_rank_lost_impression_share
+
+  ad_group:
+    - ad_group.name
+    - ad_group.id
+    - ad_group.status
+    - ad_group.campaign
+    - campaign.name
+    - metrics.impressions
+    - metrics.clicks
+    - metrics.ctr
+    - metrics.cost_micros
+    - metrics.average_cpc
+    - metrics.conversions
+    - metrics.cost_per_conversion
+
+  keyword:
+    - ad_group_criterion.keyword.text
+    - ad_group_criterion.keyword.match_type
+    - ad_group.name
+    - campaign.name
+    - metrics.impressions
+    - metrics.clicks
+    - metrics.ctr
+    - metrics.cost_micros
+    - metrics.conversions
+
+  search_term:
+    - search_term_view.search_term
+    - search_term_view.status
+    - ad_group.name
+    - campaign.name
+    - metrics.impressions
+    - metrics.clicks
+    - metrics.ctr
+    - metrics.cost_micros
+    - metrics.conversions
+
+  asset:
+    - asset.text_asset.text
+    - asset.id
+    - ad_group.name
+    - ad_group_ad_asset_view.field_type
+    - campaign.name
+    - metrics.impressions
+    - metrics.clicks
+    - metrics.ctr
+    - metrics.conversions

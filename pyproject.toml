@@ -1,0 +1,8 @@
+[project]
+name = "autoresearch-ads"
+version = "0.1.0"
+description = "Autonomous ad copy optimization through experimentation"
+requires-python = ">=3.10"
+dependencies = [
+    "pyyaml>=6.0",
+]
