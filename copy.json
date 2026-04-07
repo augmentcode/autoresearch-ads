@@ -1,0 +1,56 @@
+{
+  "cycle": 2,
+  "date": "2026-04-07",
+  "proposals": [
+    {
+      "type": "headline",
+      "ad_group": "claude_code",
+      "original": "Free with Claude Code Sub",
+      "original_conversion_rate": 0.0,
+      "original_clicks": 987,
+      "new_text": "Parallel Claude Code Agents",
+      "char_count": 27,
+      "hypothesis": "987 clicks, 0 conversions from the free-subscription angle. The audience searching 'claude code' is looking for Anthropic's product, not a free deal. In the same ad group, 'Claude Code With Worktrees' converts at 4.9% and 'Claude Code Without Conflicts' at 1.6%. The pattern: capability-first messaging (parallel agents, worktrees, no conflicts) converts; price-first messaging doesn't. This headline mirrors the capability framing that already works."
+    },
+    {
+      "type": "headline",
+      "ad_group": "claude_code",
+      "original": "One App for AI Development",
+      "original_conversion_rate": 0.0,
+      "original_clicks": 452,
+      "new_text": "Claude Code With Living Spec",
+      "char_count": 28,
+      "hypothesis": "452 clicks, 0 conversions. 'One App for AI Development' is generic and doesn't speak to Claude Code users specifically. A living spec is Intent's primary differentiator from running Claude Code in terminal: agents read and write back to the spec, staying aligned as code changes. This headline connects the searcher's interest (Claude Code) with Intent's unique mechanism (living spec), targeting users who know Claude Code but haven't yet understood what Intent adds."
+    },
+    {
+      "type": "description",
+      "ad_group": "claude_code",
+      "original": "Already have a Claude Code, Codex, or OpenCode subscription? Use Intent completely free.",
+      "original_conversion_rate": 0.0,
+      "original_clicks": 949,
+      "new_text": "Run parallel Claude Code agents from spec to PR. No terminal switching, no conflicts.",
+      "char_count": 85,
+      "hypothesis": "949 clicks, 0 conversions. The 'use Intent completely free' offer attracts curiosity but not downloads. In the claude_code_mac ad group, 'Run Claude Code agents in parallel. Each in its own worktree, no conflicts.' converts at 10.3% (4 conv). This replacement copies that structure and adds 'spec to PR' — the workflow hook that also converts in the sdd group. The hypothesis: describing the workflow (not the price) qualifies the click and drives downloads."
+    },
+    {
+      "type": "headline",
+      "ad_group": "ralph",
+      "original": "Beyond Ralph",
+      "original_conversion_rate": 0.0,
+      "original_clicks": 173,
+      "new_text": "Ralph Loop Plus Visual Diff",
+      "char_count": 27,
+      "hypothesis": "173 clicks, 0 conversions. 'Beyond Ralph' is abstract positioning. People searching 'ralph loop claude code' already use Ralph and want to know what they're missing, not that something is 'beyond' it. Ralph runs in the terminal — it has no visual layer. Intent's workspace adds the visual diff, browser preview, and git UI that Ralph lacks. A headline naming the concrete addition (visual diff) speaks directly to the Ralph user's workflow gap rather than asking them to imagine an undefined upgrade."
+    },
+    {
+      "type": "headline",
+      "ad_group": "sdd",
+      "original": "From Spec To PR In Parallel",
+      "original_conversion_rate": 0.0,
+      "original_clicks": 175,
+      "new_text": "Spec to PR, Zero Tab Switching",
+      "char_count": 30,
+      "hypothesis": "175 clicks, 0 conversions. 'From Spec To PR In Parallel' is already accurate but abstract. Searchers on 'spec driven development' understand the spec workflow — what they don't know is how Intent concretely saves them work. 'Zero tab switching' names the specific friction: moving between spec, code, terminal, browser, and git. The product.md claim 'prompt to PR without leaving the app' directly supports this. Converting assets in the sdd group tend to be concrete ('Move Up the Stack to SDD' at 0.45% CR, 'Spec-Driven Development' at 0.21% CR) vs. abstract."
+    }
+  ]
+}
