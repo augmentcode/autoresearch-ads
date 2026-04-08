@@ -472,17 +472,7 @@ cycle	date	conv_rate	cost_per_conv	assets_deployed	winners	losers	status	descrip
 
 Git commit: `cycle N: deploy + log results`
 
-### Step 9: Notify
-
-Send a Slack notification with the cycle summary:
-
-```bash
-cd ~/autoresearch-ads && python3 notify.py
-```
-
-This reads `snapshot.json`, `results.tsv`, and `experiments.jsonl` to build a summary message. Requires `SLACK_WEBHOOK_URL` in `.env`. If not set, the notification is silently skipped — the cycle still succeeds.
-
-### Step 10: Stop
+### Step 9: Stop
 
 Print a cycle summary:
 
