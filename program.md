@@ -85,13 +85,10 @@ Print: `📡 [{i}/{total}] Fetching: {campaign_name}`
      - Fields from `config.yaml` → `mcp_fields.asset`
      - Conditions: date range, `metrics.impressions > 0`
    - Write to `data/partials/{campaign_name}-assets.json`.
-     Write MCP rows verbatim (nested objects, not flattened), **except**:
-     convert `ad_group_ad_asset_view.field_type` from numeric enum to
-     string before writing. The MCP returns `2` for headlines and `3` for
-     descriptions, but `snapshot.py` does string matching (`"HEADLINE" in ...`).
-     Map: `2 → "HEADLINE"`, `3 → "DESCRIPTION"`, anything else → keep as-is.
+     Write MCP rows verbatim (nested objects, not flattened).
+     `aggregate.py` auto-converts numeric `field_type` enums to strings.
      ```json
-     {"assets": [<raw MCP rows with field_type as string>]}
+     {"assets": [<raw MCP rows>]}
      ```
 
 Print: `  ✓ {campaign_name} done ({N} assets, {M} keywords, {P} search terms)`
