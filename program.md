@@ -109,15 +109,34 @@ Read `data/snapshot.json`. This is your compressed view of the account — use i
 
 Read `memory/experiments.jsonl`. Find entries with `"status": "launched"`.
 
-For each launched experiment:
-1. Find the matching asset in `snapshot.json` by text (normalize: lowercase, strip whitespace).
-2. If found and impressions >= config threshold (`min_impressions`):
+For each launched experiment, branch on `experiment_type`:
+
+**`ad_variation`** — Google runs the A/B test; ask it for the verdict.
+1. Call the `google-ads-write` MCP tool `get_experiment_status` with:
+   - `customer_id` from `config.yaml`
+   - `experiment_id` from the logged entry
+2. Google returns the experiment status (`SETUP`, `INITIATED`, `RUNNING`,
+   `GRADUATED`, `HALTED`, `REMOVED`) plus per-arm metrics. Map to our statuses:
+   - `SETUP` / `INITIATED` / `RUNNING` → leave as `"launched"` (still collecting)
+   - Variant arm wins by >= `thresholds.winner` → status `"scored"`, outcome `"winner"`
+   - Variant arm loses by >= `|thresholds.loser|` → status `"scored"`, outcome `"loser"`
+   - Otherwise → status `"scored"`, outcome `"inconclusive"`
+3. Record `result_conversion_rate` from the variant arm's metrics.
+4. If outcome is `"winner"`, you may call `graduate_experiment` in Step 7
+   of the NEXT cycle to promote it (always `validate_only: true` first).
+
+**`direct_swap`** (default, and any legacy entry missing `experiment_type`)
+— text-match against the snapshot.
+1. Find the matching asset in `snapshot.json` by `new_text` (normalize:
+   lowercase, strip whitespace).
+2. If found and impressions >= `thresholds.min_impressions`:
    - Record `result_conversion_rate` from the snapshot.
    - Compare to `original_conversion_rate`:
-     - **Winner**: result >= original x 1.20 (20% improvement)
-     - **Loser**: result <= original x 0.80 (20% decline)
-     - **Inconclusive**: between, or insufficient data
-   - Set `status` to `"scored"`.
+     - **Winner**: result >= original × (1 + `thresholds.winner`)
+     - **Loser**: result <= original × (1 + `thresholds.loser`) — note that
+       `thresholds.loser` is negative in `config.yaml`
+     - **Inconclusive**: between
+   - Set `status` to `"scored"` and record the outcome.
 3. If not found or insufficient impressions: leave as `"launched"`.
 
 Write updated experiments back to `memory/experiments.jsonl`.
@@ -201,11 +220,98 @@ Do NOT proceed to deployment without explicit human approval.
 
 ### Step 7: Deploy
 
-For each **approved** proposal in `copy.json`, use the Google Ads MCP to:
-1. Add the new asset (headline or description) to the relevant ad group.
-2. If replacing an underperformer, pause or remove the original asset.
+**Background.** Google Ads blocks `AdService.MutateAds UPDATE` on responsive
+search ad headlines and descriptions — they are immutable once the ad is
+created. You cannot edit individual assets on an existing RSA. To change
+copy, you must either (a) create a new RSA and pause the old one ("direct
+swap") or (b) run an Ad Variation experiment (statistical A/B test).
 
-Log each action. If an MCP write fails, note the failure and continue with remaining proposals.
+Both paths go through the `google-ads-write` MCP, which exposes:
+- `create_responsive_search_ad` — creates a new RSA in an ad group
+- `pause_ad` — pauses an existing ad by resource name
+- `create_ad_variation` — creates an Ad Variation experiment against a base ad
+- `get_experiment_status` — reads experiment verdict (used in Step 3)
+- `graduate_experiment` — promotes a winning variation
+
+Reads (fetching the current ad structure) still go through the read-only
+`google-ads` MCP.
+
+**Decision: direct_swap vs ad_variation.**
+- **direct_swap (default)** — Use for every deploy unless you have a
+  specific reason to run a statistical test. Faster, simpler, produces an
+  immediate copy change. The new RSA starts serving immediately and the old
+  one stops.
+- **ad_variation** — Use when you want statistical confidence on a small
+  change (e.g. swapping a single headline) and you're willing to wait 1–2
+  weeks for Google to collect data. The base RSA keeps serving alongside
+  the variant as the control. Never pause the base ad in this path.
+
+Default to `direct_swap` unless a proposal in `copy.json` explicitly sets
+`"experiment_type": "ad_variation"`.
+
+**1. Group approved proposals by `ad_group`.**
+   All proposals for the same ad group become a single new RSA creation.
+   You cannot swap different headlines on the same RSA in the same cycle
+   with separate calls — you must build the full new ad.
+
+**2. For each ad_group, fetch the current winning RSA.** Use the read-only
+`google-ads` MCP:
+   ```
+   SELECT ad_group_ad.ad.id, ad_group_ad.resource_name,
+          ad_group_ad.ad.responsive_search_ad.headlines,
+          ad_group_ad.ad.responsive_search_ad.descriptions,
+          ad_group_ad.ad.final_urls, ad_group_ad.status,
+          metrics.clicks, metrics.conversions
+   FROM ad_group_ad
+   WHERE ad_group.name = '<ad_group>'
+     AND ad_group_ad.status = 'ENABLED'
+     AND ad_group_ad.ad.type = 'RESPONSIVE_SEARCH_AD'
+   ORDER BY metrics.impressions DESC
+   LIMIT 1
+   ```
+   Call this the *base ad*. Its `ad_group_ad.resource_name` is `old_ad_id`;
+   its `headlines` and `descriptions` are the starting set. Preserve each
+   headline's `pinned_field` if set.
+
+**3. Build the new RSA's copy.**
+   - Start with the base ad's headlines and descriptions.
+   - For each proposal in the group, replace the asset whose text matches
+     `original` with `new_text`. Preserve any pinned positions from the
+     original.
+   - RSAs require 3–15 headlines and 2–4 descriptions; keep the base ad's
+     count.
+   - Final URL = base ad's final URL.
+   - Count characters on every headline (≤ `constraints.headline_max_chars`)
+     and description (≤ `constraints.description_max_chars`) before calling
+     the API. Rewrite if over.
+
+**4. Deploy — `direct_swap` path.**
+   a. Call `create_responsive_search_ad` with `validate_only: true`. If it
+      returns an error, fix the inputs and retry from step 3.
+   b. Call `create_responsive_search_ad` with `validate_only: false`.
+      Record the returned resource name as `new_ad_id`.
+   c. Call `pause_ad` with `ad_id = old_ad_id` and `validate_only: true`
+      first, then `validate_only: false`. Record success.
+   d. If pause fails, DO NOT revert the new ad — you now have two enabled
+      RSAs in the ad group, which is still better than zero. Log the
+      failure and continue.
+
+**5. Deploy — `ad_variation` path (only when explicitly requested).**
+   a. Call `create_ad_variation` with `validate_only: true`.
+   b. Call `create_ad_variation` with `validate_only: false`. Record the
+      returned experiment resource name as `experiment_id` and the variant
+      arm's new ad as `new_ad_id`. `old_ad_id` = the base ad whose variation
+      this is.
+   c. Do NOT call `pause_ad` — the base ad must keep serving as the control.
+
+**6. Error handling.**
+   Always run `validate_only: true` first on every mutate call. If any
+   write step fails, log the failure (with `error_code` and `request_id`)
+   and continue with the remaining ad groups. Partial deploys are
+   acceptable; all-or-nothing is not required.
+
+Log each action with full resource names as you go — these are the inputs
+to Step 8 and to Step 3 of future cycles.
 
 ### Step 8: Log
 
@@ -215,17 +321,37 @@ Log each action. If an MCP write fails, note the failure and continue with remai
   "id": "2026-04-08-001",
   "cycle": 5,
   "timestamp": "ISO-8601",
+  "experiment_type": "direct_swap",
   "type": "headline",
   "ad_group": "claude_code",
   "original": "Free with Claude Code Sub",
   "original_conversion_rate": 0.028,
   "new_text": "Your proposed text here",
   "hypothesis": "Why you think this converts better",
+  "old_ad_id": "customers/9232939339/adGroupAds/123~456",
+  "new_ad_id": "customers/9232939339/adGroupAds/123~789",
+  "experiment_id": null,
   "status": "launched",
   "result_conversion_rate": null,
   "outcome": null
 }
 ```
+
+Field reference for the write-MCP-era fields:
+- `experiment_type` — `"direct_swap"` (default) or `"ad_variation"`.
+- `old_ad_id` — resource name of the ad that was paused (direct_swap) or
+  of the base ad the variation runs against (ad_variation). Never null on
+  a successful deploy.
+- `new_ad_id` — resource name of the newly created ad. Never null on a
+  successful deploy.
+- `experiment_id` — resource name of the `experiment` resource for
+  ad_variation entries; always null for direct_swap.
+
+If a proposal fails to deploy, append it anyway with
+`"status": "deployment_failed"`, `"failure_reason": "<error_code> <message>"`,
+and `new_ad_id` / `experiment_id` set to null. Legacy entries from before
+this schema change (no `experiment_type` field) are treated as `direct_swap`
+by Step 3.
 
 2. **results.tsv** — Append one row for this cycle:
 ```
