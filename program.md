@@ -19,7 +19,20 @@ Once you get confirmation, begin daily experimentation.
 
 ## The Daily Cycle
 
-Each cycle follows these steps in order:
+Each cycle follows these steps in order.
+
+### Step 0: Pre-flight
+
+Before starting a cycle, run two checks:
+
+1. **Idempotency** — Read `results.tsv`. If the last row's `date` column
+   matches today's date (YYYY-MM-DD), STOP. Print
+   `⚠️ Cycle already ran today ({date}). Skipping.` and exit.
+   This prevents duplicate RSA creation if the agent is triggered twice.
+
+2. **Cycle number** — Read the last row of `results.tsv`. The new cycle
+   number is `last_cycle + 1`. If `results.tsv` has only the header,
+   this is cycle 1. Never hard-code the cycle number.
 
 ### Step 1: Data Pull
 
