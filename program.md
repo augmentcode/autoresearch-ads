@@ -6,16 +6,14 @@ Autonomous ad copy optimization through experimentation. You pull data, score pr
 
 To set up a new experiment run, work with the user to:
 
-1. **Agree on a run tag**: propose a tag based on today's date (e.g. `apr8`). The branch `autoresearch-ads/<tag>` must not already exist.
-2. **Create the branch**: `git checkout -b autoresearch-ads/<tag>` from current main.
-3. **Read the in-scope files**:
+1. **Read the in-scope files**:
    - `config.yaml` — campaigns, customer_id, ad groups, constraints, MCP query fields.
    - `product.md` — what the product is and what claims are safe to make.
    - `snapshot.py` — the data compression script you'll run each cycle. Do not modify.
-4. **Verify MCP access**: Run a small test query to confirm Google Ads MCP responds. Query one campaign for `metrics.impressions` with a 1-day date range.
-5. **Initialize results.tsv**: Create `results.tsv` with just the header row. The baseline will be recorded after the first cycle.
-6. **Run the first cycle as baseline**: Pull data, compress, and log cycle 1 with status `baseline`. Do NOT generate or deploy copy on the first cycle — just establish the starting conversion_rate.
-7. **Confirm and go**: Confirm setup looks good.
+2. **Verify MCP access**: Run a small test query to confirm Google Ads MCP responds. Query one campaign for `metrics.impressions` with a 1-day date range.
+3. **Initialize results.tsv**: Create `results.tsv` with just the header row. The baseline will be recorded after the first cycle.
+4. **Run the first cycle as baseline**: Pull data, compress, and log cycle 1 with status `baseline`. Do NOT generate or deploy copy on the first cycle — just establish the starting conversion_rate.
+5. **Confirm and go**: Confirm setup looks good.
 
 Once you get confirmation, begin daily experimentation.
 
@@ -256,7 +254,7 @@ Write proposals to `copy.json`:
 }
 ```
 
-Git commit: `cycle N: propose copy changes`
+Git commit and push: `cycle N: propose copy changes`
 
 ### Step 6: Review Gate
 
@@ -461,7 +459,7 @@ cycle	date	conv_rate	cost_per_conv	assets_deployed	winners	losers	status	descrip
    - Patterns that have lost (with data)
    - Rules derived from >= 3 data points
 
-Git commit: `cycle N: deploy + log results`
+Git commit and push: `cycle N: deploy + log results`
 
 ### Step 9: Stop
 
