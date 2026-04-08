@@ -1,5 +1,6 @@
 # Raw MCP data (large, ephemeral — regenerated each cycle)
 data/raw-*.json
+data/partials/
 
 # Compressed snapshot (regenerated each cycle)
 data/snapshot.json
@@ -8,6 +9,9 @@ data/snapshot.json
 __pycache__/
 *.pyc
 .venv/
+
+# Secrets
+.env
 
 # OS
 .DS_Store

@@ -4,7 +4,7 @@ platform: google_search
 data_source:
   type: mcp
   customer_id: "9232939339"
-  date_range: last_7_days   # last_7_days | last_14_days | last_30_days | custom
+  date_range: last_30_days  # last_7_days | last_14_days | last_30_days | custom
   # start_date: "2026-04-01"
   # end_date: "2026-04-07"
 

@@ -168,10 +168,17 @@ def process_ad_groups(raw, total_spend):
     global_median_conv_rate = round(median_of(conversion_rates), 6)
 
     # Classify ad groups
+    # When median is 0 (sparse conversions), use spend-weighted ranking instead
     for ag in ad_groups:
         cr = ag["conversion_rate"]
         if ag["clicks"] < 10:
             ag["classification"] = "low_volume"
+        elif global_median_conv_rate == 0:
+            # Sparse data: classify by whether they have any conversions
+            if cr > 0:
+                ag["classification"] = "converting"
+            else:
+                ag["classification"] = "no_conversions"
         elif cr >= global_median_conv_rate * 1.5:
             ag["classification"] = "top_performer"
         elif cr >= global_median_conv_rate:
@@ -179,11 +186,16 @@ def process_ad_groups(raw, total_spend):
         else:
             ag["classification"] = "below_median"
 
-        # Priority score: high spend + low conversion = high priority
-        ag["priority_score"] = round(
-            ag["spend_share"] * (1 - safe_div(cr, global_median_conv_rate, 1.0)),
-            4
-        )
+        # Priority score: high spend + low/no conversions = high priority
+        if global_median_conv_rate > 0:
+            ag["priority_score"] = round(
+                ag["spend_share"] * (1 - safe_div(cr, global_median_conv_rate, 1.0)),
+                4
+            )
+        else:
+            # Sparse data: prioritize by spend share * (1 if no conversions, 0.5 if converting)
+            no_conv_penalty = 1.0 if ag["conversions"] == 0 else 0.5
+            ag["priority_score"] = round(ag["spend_share"] * no_conv_penalty, 4)
 
     # Sort by priority score descending
     ad_groups.sort(key=lambda x: x["priority_score"], reverse=True)
@@ -260,11 +272,32 @@ def process_assets(raw):
     headlines, headline_median_cr = classify_assets(headlines)
     descriptions, desc_median_cr = classify_assets(descriptions)
 
+    # Trim to keep snapshot under ~30K chars for assets
+    # Keep: all winners, all underperformers, top rotation by impressions
+    MAX_HEADLINES = 60
+    MAX_DESCRIPTIONS = 30
+
+    def trim_assets(assets, limit):
+        # Always keep winners and underperformers
+        keep = [a for a in assets if a["tier"] in ("winner", "underperformer")]
+        rest = [a for a in assets if a["tier"] not in ("winner", "underperformer")]
+        # Fill remaining slots with highest-impression rotation/insufficient
+        rest.sort(key=lambda x: x["impressions"], reverse=True)
+        remaining = limit - len(keep)
+        if remaining > 0:
+            keep.extend(rest[:remaining])
+        return keep
+
+    headlines = trim_assets(headlines, MAX_HEADLINES)
+    descriptions = trim_assets(descriptions, MAX_DESCRIPTIONS)
+
     return {
         "headlines": headlines,
         "headline_median_conversion_rate": round(headline_median_cr, 6),
+        "headline_total_count": len(headlines),
         "descriptions": descriptions,
         "description_median_conversion_rate": round(desc_median_cr, 6),
+        "description_total_count": len(descriptions),
     }
 
 
