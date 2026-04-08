@@ -108,6 +108,7 @@ Read `data/snapshot.json`. This is your compressed view of the account — use i
 ### Step 3: Score Previous Experiments
 
 Read `memory/experiments.jsonl`. Find entries with `"status": "launched"`.
+If there are none, this step is a no-op — skip to Step 4.
 
 For each launched experiment, branch on `experiment_type`:
 
@@ -115,31 +116,86 @@ For each launched experiment, branch on `experiment_type`:
 1. Call the `google-ads-write` MCP tool `get_experiment_status` with:
    - `customer_id` from `config.yaml`
    - `experiment_id` from the logged entry
-2. Google returns the experiment status (`SETUP`, `INITIATED`, `RUNNING`,
-   `GRADUATED`, `HALTED`, `REMOVED`) plus per-arm metrics. Map to our statuses:
+2. The tool returns JSON with this shape:
+   ```json
+   {
+     "experiment": {"resource_name": "...", "status": "RUNNING", ...},
+     "arms": [
+       {"name": "control",   "role": "control",   "metrics": {...}},
+       {"name": "treatment", "role": "treatment", "metrics": {"conversion_rate": 0.034, ...}}
+     ],
+     "comparison": {
+       "control_conversion_rate":   0.029,
+       "treatment_conversion_rate": 0.034,
+       "lift_vs_control":           0.172
+     },
+     "hint": "..."
+   }
+   ```
+   The experiment status uses Google's enum: `SETUP`, `INITIATED`,
+   `RUNNING`, `GRADUATED`, `HALTED`, `PROMOTED`, `REMOVED`.
+3. Score using `comparison.lift_vs_control`:
    - `SETUP` / `INITIATED` / `RUNNING` → leave as `"launched"` (still collecting)
-   - Variant arm wins by >= `thresholds.winner` → status `"scored"`, outcome `"winner"`
-   - Variant arm loses by >= `|thresholds.loser|` → status `"scored"`, outcome `"loser"`
+   - `lift_vs_control >= thresholds.winner` → status `"scored"`, outcome `"winner"`
+   - `lift_vs_control <= thresholds.loser` → status `"scored"`, outcome `"loser"`
+     (`thresholds.loser` is negative in `config.yaml`)
    - Otherwise → status `"scored"`, outcome `"inconclusive"`
-3. Record `result_conversion_rate` from the variant arm's metrics.
-4. If outcome is `"winner"`, you may call `graduate_experiment` in Step 7
+4. Record `result_conversion_rate` = `comparison.treatment_conversion_rate`.
+5. If `comparison.control_conversion_rate` is `0` or `null`, fall back to
+   the **zero-original rules** (see direct_swap step 3 below) using the
+   treatment arm's absolute metrics.
+6. If outcome is `"winner"`, you may call `graduate_experiment` in Step 7
    of the NEXT cycle to promote it (always `validate_only: true` first).
 
 **`direct_swap`** (default, and any legacy entry missing `experiment_type`)
 — text-match against the snapshot.
-1. Find the matching asset in `snapshot.json` by `new_text` (normalize:
-   lowercase, strip whitespace).
-2. If found and impressions >= `thresholds.min_impressions`:
-   - Record `result_conversion_rate` from the snapshot.
-   - Compare to `original_conversion_rate`:
-     - **Winner**: result >= original × (1 + `thresholds.winner`)
-     - **Loser**: result <= original × (1 + `thresholds.loser`) — note that
-       `thresholds.loser` is negative in `config.yaml`
+1. **Normalize both `new_text` and the snapshot asset text** before
+   comparing. Apply, in order:
+   - Unicode NFKC normalization (`unicodedata.normalize("NFKC", s)`)
+   - Lowercase
+   - Strip leading/trailing whitespace
+   - Strip trailing `.`, `!`, `?`, `,`, `:`, `;`
+   - Replace smart quotes (`'`, `'`, `"`, `"`) with straight quotes
+   - Replace en-dash (`–`) and em-dash (`—`) with hyphen (`-`)
+2. **Scope the match to the entry's `ad_group`** — only compare against
+   assets where `snapshot_asset["ad_group"] == entry["ad_group"]`. If
+   multiple matches survive, pick the one with the most impressions.
+3. If no asset found: leave as `"launched"`. If found but
+   `impressions < thresholds.min_impressions`: leave as `"launched"`.
+4. Compare `result_conversion_rate` (from the snapshot) to
+   `original_conversion_rate`:
+   - **If `original_conversion_rate > 0`** (the normal case):
+     - **Winner**: `result >= original × (1 + thresholds.winner)`
+     - **Loser**: `result <= original × (1 + thresholds.loser)` — note
+       that `thresholds.loser` is negative in `config.yaml`
      - **Inconclusive**: between
-   - Set `status` to `"scored"` and record the outcome.
-3. If not found or insufficient impressions: leave as `"launched"`.
+   - **If `original_conversion_rate == 0`** (zero-original rules):
+     The multiplicative thresholds collapse (`0 × anything == 0`), so
+     use absolute floors instead:
+     - **Winner**: `result_conversion_rate >= 0.02` AND `conversions >= 3`
+     - **Loser**: `clicks >= 50` AND `conversions == 0`
+     - **Inconclusive**: anything else (record `result_conversion_rate`
+       anyway so the next cycle can re-score with more data)
+5. Set `status` to `"scored"` and record the outcome and
+   `result_conversion_rate`.
 
-Write updated experiments back to `memory/experiments.jsonl`.
+**Writing updates back to `memory/experiments.jsonl`** — use atomic
+write semantics: write the new contents to a temp file in the same
+directory, then `os.replace(temp_path, target_path)`. This guarantees
+the file is never partially written even if the agent crashes mid-cycle.
+
+```python
+import os, tempfile
+fd, temp_path = tempfile.mkstemp(
+    prefix="experiments-",
+    suffix=".jsonl.tmp",
+    dir=os.path.dirname(EXPERIMENTS_PATH),
+)
+with os.fdopen(fd, "w") as f:
+    for entry in entries:
+        f.write(json.dumps(entry) + "\n")
+os.replace(temp_path, EXPERIMENTS_PATH)
+```
 
 ### Step 4: Analyze
 
@@ -168,6 +224,18 @@ Constraints (from config.yaml):
 - Descriptions: max `description_max_chars` characters.
 - Claims must be grounded in `product.md`. Do not invent features or numbers.
 - Count characters before finalizing. If over limit, rewrite.
+
+**Critical: only propose swaps on assets that are in a CURRENTLY-ENABLED
+RSA.** The snapshot's `assets` and `conversion_insights` sections
+include data from paused ads too — those ads still hold 30-day metrics
+even though they no longer serve. If you propose replacing a headline
+that lives in a paused ad, Step 7 will skip the proposal because there
+is nothing to swap. Before writing each proposal, verify the original
+text exists in the current winning ad by calling
+`get_ad(ad_group_id, select_winning=true)` and checking its `headlines`
+list. (You can batch this: call `get_ad` once per ad group you have
+proposals for, then validate all your proposals against the returned
+headlines.)
 
 Write proposals to `copy.json`:
 
@@ -227,14 +295,26 @@ copy, you must either (a) create a new RSA and pause the old one ("direct
 swap") or (b) run an Ad Variation experiment (statistical A/B test).
 
 Both paths go through the `google-ads-write` MCP, which exposes:
+- `get_ad` — fetches an RSA's full content (headlines, descriptions,
+  final URLs, pinned positions). Used in Step 7.2 below.
 - `create_responsive_search_ad` — creates a new RSA in an ad group
 - `pause_ad` — pauses an existing ad by resource name
 - `create_ad_variation` — creates an Ad Variation experiment against a base ad
-- `get_experiment_status` — reads experiment verdict (used in Step 3)
+- `get_experiment_status` — reads experiment status + per-arm metrics
+  (used in Step 3)
 - `graduate_experiment` — promotes a winning variation
 
-Reads (fetching the current ad structure) still go through the read-only
-`google-ads` MCP.
+**Why `get_ad` lives in the write MCP, not the read MCP**: the
+read-only `google-ads` MCP crashes with `Unable to serialize unknown
+type: RepeatedComposite` whenever a query asks for
+`ad_group_ad.ad.responsive_search_ad.headlines`, `.descriptions`, or
+`ad_group_ad.ad.final_urls`. These are the exact fields Step 7.2
+needs. The write MCP uses the TypeScript `google-ads-api` package,
+which handles these fields natively, so we read through it.
+
+Other reads (campaign / ad_group structure, search terms, etc.) still
+go through the read-only `google-ads` MCP — only the RSA composite
+fields are gated through `get_ad`.
 
 **Decision: direct_swap vs ad_variation.**
 - **direct_swap (default)** — Use for every deploy unless you have a
@@ -254,33 +334,60 @@ Default to `direct_swap` unless a proposal in `copy.json` explicitly sets
    You cannot swap different headlines on the same RSA in the same cycle
    with separate calls — you must build the full new ad.
 
-**2. For each ad_group, fetch the current winning RSA.** Use the read-only
-`google-ads` MCP:
-   ```
-   SELECT ad_group_ad.ad.id, ad_group_ad.resource_name,
-          ad_group_ad.ad.responsive_search_ad.headlines,
-          ad_group_ad.ad.responsive_search_ad.descriptions,
-          ad_group_ad.ad.final_urls, ad_group_ad.status,
-          metrics.clicks, metrics.conversions
-   FROM ad_group_ad
-   WHERE ad_group.name = '<ad_group>'
-     AND ad_group_ad.status = 'ENABLED'
-     AND ad_group_ad.ad.type = 'RESPONSIVE_SEARCH_AD'
-   ORDER BY metrics.impressions DESC
-   LIMIT 1
-   ```
-   Call this the *base ad*. Its `ad_group_ad.resource_name` is `old_ad_id`;
-   its `headlines` and `descriptions` are the starting set. Preserve each
-   headline's `pinned_field` if set.
+**2. For each ad_group, fetch the current winning RSA.** Look up the
+ad group's resource name from `snapshot.json` (`ad_groups[].id`) and
+construct it as `customers/{customer_id}/adGroups/{id}`. Then call
+the `google-ads-write` MCP tool `get_ad`:
+
+```json
+{
+  "customer_id": "9232939339",
+  "ad_group_id": "customers/9232939339/adGroups/191506291605",
+  "select_winning": true
+}
+```
+
+`get_ad` returns JSON with this shape:
+
+```json
+{
+  "resource_name": "customers/9232939339/adGroupAds/191506291605~803604473915",
+  "ad_id": "803604473915",
+  "status": "ENABLED",
+  "final_urls": ["https://www.example.com/landing"],
+  "headlines": [
+    {"text": "Headline One", "pinned_field": null},
+    {"text": "Headline Two", "pinned_field": "HEADLINE_1"}
+  ],
+  "descriptions": [
+    {"text": "Description One", "pinned_field": null}
+  ],
+  "metrics": {"impressions": 2232, "clicks": 69, "conversions": 0}
+}
+```
+
+Call this the *base ad*. `resource_name` is `old_ad_id`; `headlines` /
+`descriptions` are the starting set; preserve each headline's
+`pinned_field` (already normalised — `null` means unpinned).
 
 **3. Build the new RSA's copy.**
    - Start with the base ad's headlines and descriptions.
-   - For each proposal in the group, replace the asset whose text matches
-     `original` with `new_text`. Preserve any pinned positions from the
-     original.
+   - For each proposal in the group, **find the matching base asset by
+     normalised text comparison**. Apply, in order, to both `original`
+     and the base asset's `text`:
+     - Unicode NFKC normalization
+     - Lowercase
+     - Strip leading/trailing whitespace
+     - Strip trailing `.`, `!`, `?`, `,`, `:`, `;`
+     - Replace smart quotes (`'`, `'`, `"`, `"`) with straight quotes
+     - Replace en-dash (`–`) and em-dash (`—`) with hyphen (`-`)
+     If no asset matches the proposal's `original`, log a warning and
+     skip that proposal — do NOT silently invent the swap.
+   - Replace the matched asset's `text` with `new_text` while
+     preserving its `pinned_field`.
    - RSAs require 3–15 headlines and 2–4 descriptions; keep the base ad's
      count.
-   - Final URL = base ad's final URL.
+   - Final URL = `base.final_urls[0]`.
    - Count characters on every headline (≤ `constraints.headline_max_chars`)
      and description (≤ `constraints.description_max_chars`) before calling
      the API. Rewrite if over.

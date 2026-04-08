@@ -10,9 +10,11 @@ import json
 import os
 import statistics
 import sys
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
-DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+ROOT = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(ROOT, "data")
+CONFIG_PATH = os.path.join(ROOT, "config.yaml")
 RAW_STRUCTURE = os.path.join(DATA_DIR, "raw-structure.json")
 RAW_QUERIES = os.path.join(DATA_DIR, "raw-queries.json")
 RAW_ASSETS = os.path.join(DATA_DIR, "raw-assets.json")
@@ -25,6 +27,62 @@ def load_json(path):
         return {}
     with open(path) as f:
         return json.load(f)
+
+
+def read_config():
+    """Load config.yaml. Returns {} if not found or unparseable."""
+    if not os.path.exists(CONFIG_PATH):
+        return {}
+    try:
+        import yaml
+        with open(CONFIG_PATH) as f:
+            return yaml.safe_load(f) or {}
+    except Exception as e:
+        print(f"WARNING: failed to load config.yaml: {e}")
+        return {}
+
+
+_NAMED_RANGES = {
+    "last_7_days": 7,
+    "last_14_days": 14,
+    "last_30_days": 30,
+    "last_60_days": 60,
+    "last_90_days": 90,
+}
+
+
+def compute_date_range(config):
+    """Return {type, start, end} describing the snapshot's data window.
+
+    Supports named ranges (last_N_days) and explicit start_date/end_date
+    overrides in config.data_source. The agent should record the actual
+    dates used at data-pull time; this function infers them based on
+    'today' as a best-effort fallback.
+    """
+    ds = (config.get("data_source") or {})
+    range_type = ds.get("date_range", "unknown")
+
+    explicit_start = ds.get("start_date")
+    explicit_end = ds.get("end_date")
+    if explicit_start and explicit_end:
+        return {
+            "type": "custom",
+            "start": str(explicit_start),
+            "end": str(explicit_end),
+        }
+
+    if range_type in _NAMED_RANGES:
+        days = _NAMED_RANGES[range_type]
+        # Google Ads' most recent complete day is yesterday.
+        end = date.today() - timedelta(days=1)
+        start = end - timedelta(days=days - 1)
+        return {
+            "type": range_type,
+            "start": start.isoformat(),
+            "end": end.isoformat(),
+        }
+
+    return {"type": str(range_type), "start": None, "end": None}
 
 
 def safe_div(a, b, default=0.0):
@@ -245,48 +303,87 @@ def process_assets(raw):
             # Unknown type — include in headlines as fallback
             headlines.append(asset)
 
-    # Classify assets by conversion performance
+    # Classify assets by conversion performance.
+    #
+    # Two modes:
+    #  (1) NORMAL — when there are enough conversions across the cohort
+    #      that the median conversion rate is non-zero. Tier by deviation
+    #      from median (winner >= 1.2x median, underperformer < 0.8x).
+    #  (2) SPARSE — when global median is 0 (most assets have no
+    #      conversions). Median-relative classification produces every
+    #      asset = winner, which is useless. Fall back to absolute
+    #      signal: any asset with conversions > 0 is a winner; assets
+    #      with >=50 clicks and 0 conversions are underperformers; the
+    #      rest are rotation.
     def classify_assets(assets):
         conv_rates = [a["conversion_rate"] for a in assets if a["clicks"] >= 10]
         median_cr = median_of(conv_rates) if conv_rates else 0
+        sparse_mode = (median_cr == 0)
 
         for asset in assets:
             cr = asset["conversion_rate"]
-            if asset["impressions"] < 100:
+            clicks = asset["clicks"]
+            impressions = asset["impressions"]
+            conversions = asset["conversions"]
+
+            if impressions < 100 or clicks < 10:
                 asset["tier"] = "insufficient_data"
-            elif cr >= median_cr * 1.2 and asset["clicks"] >= 10:
+            elif sparse_mode:
+                if conversions > 0:
+                    asset["tier"] = "winner"
+                elif clicks >= 50:
+                    asset["tier"] = "underperformer"
+                else:
+                    asset["tier"] = "rotation"
+            elif cr >= median_cr * 1.2:
                 asset["tier"] = "winner"
-            elif cr < median_cr * 0.8 and asset["clicks"] >= 10:
+            elif cr < median_cr * 0.8:
                 asset["tier"] = "underperformer"
             else:
                 asset["tier"] = "rotation"
 
-            # Conversion impact: how much conversion rate deviates from median
-            asset["conversion_impact"] = round(safe_div(cr, median_cr, 1.0), 3) if median_cr > 0 else 0
+            # Conversion impact: deviation from median in normal mode,
+            # absolute signal (1.0 if converting, 0.0 if not) in sparse.
+            if median_cr > 0:
+                asset["conversion_impact"] = round(safe_div(cr, median_cr, 1.0), 3)
+            else:
+                asset["conversion_impact"] = 1.0 if conversions > 0 else 0.0
 
-        # Sort: underperformers first (highest priority for replacement)
-        tier_order = {"underperformer": 0, "rotation": 1, "insufficient_data": 2, "winner": 3}
-        assets.sort(key=lambda x: (tier_order.get(x["tier"], 9), -x.get("impressions", 0)))
+        # Sort: underperformers first (highest replacement priority),
+        # then winners (success patterns to learn from), then rotation,
+        # then insufficient_data. Within each tier, highest impressions
+        # first.
+        tier_order = {
+            "underperformer": 0,
+            "winner": 1,
+            "rotation": 2,
+            "insufficient_data": 3,
+        }
+        assets.sort(
+            key=lambda x: (tier_order.get(x["tier"], 9), -x.get("impressions", 0))
+        )
         return assets, median_cr
 
     headlines, headline_median_cr = classify_assets(headlines)
     descriptions, desc_median_cr = classify_assets(descriptions)
 
-    # Trim to keep snapshot under ~30K chars for assets
-    # Keep: all winners, all underperformers, top rotation by impressions
+    # Track raw counts before trimming so the agent knows whether
+    # what it's looking at is the full set or a sample.
+    n_headlines_raw = len(headlines)
+    n_descriptions_raw = len(descriptions)
+
+    # Hard cap on assets in the snapshot to keep it under ~30K chars.
+    # The cap is enforced even when winners + underperformers exceed
+    # the limit (which happens in sparse mode with many converting
+    # assets, or in healthy accounts with many high performers).
     MAX_HEADLINES = 60
     MAX_DESCRIPTIONS = 30
 
     def trim_assets(assets, limit):
-        # Always keep winners and underperformers
-        keep = [a for a in assets if a["tier"] in ("winner", "underperformer")]
-        rest = [a for a in assets if a["tier"] not in ("winner", "underperformer")]
-        # Fill remaining slots with highest-impression rotation/insufficient
-        rest.sort(key=lambda x: x["impressions"], reverse=True)
-        remaining = limit - len(keep)
-        if remaining > 0:
-            keep.extend(rest[:remaining])
-        return keep
+        """Hard cap. assets are already sorted by tier priority then
+        impressions desc, so simple slicing keeps the most actionable
+        items."""
+        return assets[:limit]
 
     headlines = trim_assets(headlines, MAX_HEADLINES)
     descriptions = trim_assets(descriptions, MAX_DESCRIPTIONS)
@@ -294,10 +391,12 @@ def process_assets(raw):
     return {
         "headlines": headlines,
         "headline_median_conversion_rate": round(headline_median_cr, 6),
-        "headline_total_count": len(headlines),
+        "headline_total_count": n_headlines_raw,
+        "headline_shown_count": len(headlines),
         "descriptions": descriptions,
         "description_median_conversion_rate": round(desc_median_cr, 6),
-        "description_total_count": len(descriptions),
+        "description_total_count": n_descriptions_raw,
+        "description_shown_count": len(descriptions),
     }
 
 
@@ -440,7 +539,9 @@ def build_conversion_insights(ad_groups, assets, search_terms):
 
 
 def main():
-    print("Loading raw MCP data...")
+    print("Loading config and raw MCP data...")
+    config = read_config()
+    date_range = compute_date_range(config)
     raw_structure = load_json(RAW_STRUCTURE)
     raw_queries = load_json(RAW_QUERIES)
     raw_assets = load_json(RAW_ASSETS)
@@ -469,10 +570,11 @@ def main():
 
     snapshot = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
+        "date_range": date_range,
         "account_summary": {
             "total_spend": round(total_spend, 2),
             "total_clicks": total_clicks,
-            "total_conversions": total_conversions,
+            "total_conversions": round(total_conversions, 4),
             "avg_conversion_rate": round(avg_conversion_rate, 6),
             "avg_cost_per_conversion": round(avg_cost_per_conversion, 2),
         },
@@ -489,20 +591,45 @@ def main():
     with open(OUTPUT, "w") as f:
         json.dump(snapshot, f, indent=2)
 
-    # Print summary
-    n_headlines = len(assets.get("headlines", []))
-    n_descriptions = len(assets.get("descriptions", []))
-    n_winners = sum(1 for a in assets.get("headlines", []) + assets.get("descriptions", [])
-                    if a.get("tier") == "winner")
-    n_underperformers = sum(1 for a in assets.get("headlines", []) + assets.get("descriptions", [])
-                           if a.get("tier") == "underperformer")
+    # Print summary using full (untrimmed) tier counts so the human
+    # gets an honest view of the underlying classification.
+    headlines_shown = assets.get("headlines", [])
+    descriptions_shown = assets.get("descriptions", [])
+    n_headlines_total = assets.get("headline_total_count", len(headlines_shown))
+    n_descriptions_total = assets.get("description_total_count", len(descriptions_shown))
+
+    def count_tier(tier):
+        return sum(
+            1
+            for a in headlines_shown + descriptions_shown
+            if a.get("tier") == tier
+        )
+
+    n_winners = count_tier("winner")
+    n_underperformers = count_tier("underperformer")
+    n_rotation = count_tier("rotation")
+    n_insufficient = count_tier("insufficient_data")
+
+    range_label = date_range.get("type", "unknown")
+    if date_range.get("start") and date_range.get("end"):
+        range_label = f'{date_range["type"]} ({date_range["start"]} → {date_range["end"]})'
 
     print(f"\n--- Snapshot Complete ---")
+    print(f"Date range: {range_label}")
     print(f"Campaigns: {len(campaigns)} | Total spend: ${total_spend:,.2f}")
     print(f"Ad groups: {len(ad_groups)} | Median conversion rate: {global_median_conv_rate:.4%}")
-    print(f"Assets: {n_headlines} headlines, {n_descriptions} descriptions")
-    print(f"  Winners: {n_winners} | Underperformers: {n_underperformers}")
-    print(f"Conversions: {total_conversions} | Avg rate: {avg_conversion_rate:.4%} | Avg cost: ${avg_cost_per_conversion:,.2f}")
+    print(
+        f"Assets: {len(headlines_shown)}/{n_headlines_total} headlines, "
+        f"{len(descriptions_shown)}/{n_descriptions_total} descriptions (shown/total)"
+    )
+    print(
+        f"  In view → winners: {n_winners} | underperformers: {n_underperformers} | "
+        f"rotation: {n_rotation} | insufficient_data: {n_insufficient}"
+    )
+    print(
+        f"Conversions: {total_conversions:.2f} | Avg rate: {avg_conversion_rate:.4%} | "
+        f"Avg cost: ${avg_cost_per_conversion:,.2f}"
+    )
     print(f"Keywords: {len(keywords)} (top 50 by spend)")
     print(f"Search terms: {len(search_terms)} (top 50 by spend)")
     print(f"Output: {OUTPUT}")

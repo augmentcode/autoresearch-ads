@@ -103,6 +103,7 @@ def build_message():
         }
 
     summary = snapshot.get("account_summary", {})
+    date_range = snapshot.get("date_range", {})
     cycle = last_cycle.get("cycle", "?")
     date = last_cycle.get("date", "?")
     status = last_cycle.get("status", "?")
@@ -117,20 +118,30 @@ def build_message():
     # Status emoji
     status_emoji = {"baseline": "📊", "keep": "✅", "discard": "❌"}.get(status, "❓")
 
+    # Round conversions for display (Google reports fractional conversions
+    # because of attribution weighting; agents and humans want a clean number).
+    try:
+        conversions_display = f"{float(total_conversions):.2f}"
+    except (TypeError, ValueError):
+        conversions_display = str(total_conversions)
+
     blocks = []
 
     # Header
     blocks.append({"type": "header", "text": {"type": "plain_text",
         "text": f"autoresearch-ads — Cycle {cycle}"}})
 
-    # Main metrics
+    # Main metrics — include date range so the human knows the data window
+    range_label = ""
+    if date_range.get("start") and date_range.get("end"):
+        range_label = f' ({date_range["start"]} → {date_range["end"]})'
     blocks.append({"type": "section", "text": {"type": "mrkdwn",
         "text": (
-            f"*Date:* {date}  |  *Status:* {status_emoji} {status}\n"
+            f"*Date:* {date}{range_label}  |  *Status:* {status_emoji} {status}\n"
             f"*Conversion Rate:* {fmt_pct(conv_rate)}  |  "
             f"*Cost/Conversion:* {fmt_money(cost_per_conv)}\n"
             f"*Spend:* {fmt_money(total_spend)}  |  "
-            f"*Conversions:* {total_conversions}"
+            f"*Conversions:* {conversions_display}"
         )}})
 
     blocks.append({"type": "divider"})
@@ -145,7 +156,23 @@ def build_message():
             f"{exp_counts['launched']} pending"
         )}})
 
-    # Top ad groups by conversion rate
+    # Top ad groups by conversion rate.
+    #
+    # Classification names changed in snapshot.py to support sparse-data
+    # accounts (median = 0). Map both the new and the legacy names so this
+    # keeps working across snapshot schema versions.
+    AD_GROUP_EMOJI = {
+        # Healthy-account classifications (non-zero global median).
+        "top_performer": "🟢",
+        "above_median": "🟡",
+        "below_median": "🔴",
+        # Sparse-data classifications (global median == 0).
+        "converting": "🟢",
+        "no_conversions": "🔴",
+        # Universal.
+        "low_volume": "⚪",
+    }
+
     ad_groups = snapshot.get("ad_groups", [])
     if ad_groups:
         blocks.append({"type": "divider"})
@@ -154,10 +181,13 @@ def build_message():
             cr = ag.get("conversion_rate", 0)
             conv = ag.get("conversions", 0)
             cls = ag.get("classification", "")
-            emoji = {"top_performer": "🟢", "above_median": "🟡",
-                     "below_median": "🔴", "low_volume": "⚪"}.get(cls, "⚪")
+            emoji = AD_GROUP_EMOJI.get(cls, "⚪")
+            try:
+                conv_display = f"{float(conv):.2f}".rstrip("0").rstrip(".")
+            except (TypeError, ValueError):
+                conv_display = str(conv)
             ag_lines.append(
-                f"{emoji} *{ag['name']}* — {cr:.2%} conv rate, {conv} conversions"
+                f"{emoji} *{ag['name']}* — {cr:.2%} conv rate, {conv_display} conversions"
             )
         blocks.append({"type": "section", "text": {"type": "mrkdwn",
             "text": "*Ad Group Performance*\n" + "\n".join(ag_lines)}})
