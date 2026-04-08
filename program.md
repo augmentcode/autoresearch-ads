@@ -294,7 +294,10 @@ created. You cannot edit individual assets on an existing RSA. To change
 copy, you must either (a) create a new RSA and pause the old one ("direct
 swap") or (b) run an Ad Variation experiment (statistical A/B test).
 
-Both paths go through the `google-ads-write` MCP, which exposes:
+Both paths go through the `google-ads-write` MCP, which handles all
+reads and writes. It exposes:
+- `search` — queries any Google Ads resource (campaigns, ad groups,
+  keywords, search terms, assets, etc.)
 - `get_ad` — fetches an RSA's full content (headlines, descriptions,
   final URLs, pinned positions). Used in Step 7.2 below.
 - `create_responsive_search_ad` — creates a new RSA in an ad group
@@ -303,18 +306,6 @@ Both paths go through the `google-ads-write` MCP, which exposes:
 - `get_experiment_status` — reads experiment status + per-arm metrics
   (used in Step 3)
 - `graduate_experiment` — promotes a winning variation
-
-**Why `get_ad` lives in the write MCP, not the read MCP**: the
-read-only `google-ads` MCP crashes with `Unable to serialize unknown
-type: RepeatedComposite` whenever a query asks for
-`ad_group_ad.ad.responsive_search_ad.headlines`, `.descriptions`, or
-`ad_group_ad.ad.final_urls`. These are the exact fields Step 7.2
-needs. The write MCP uses the TypeScript `google-ads-api` package,
-which handles these fields natively, so we read through it.
-
-Other reads (campaign / ad_group structure, search terms, etc.) still
-go through the read-only `google-ads` MCP — only the RSA composite
-fields are gated through `get_ad`.
 
 **Decision: direct_swap vs ad_variation.**
 - **direct_swap (default)** — Use for every deploy unless you have a
