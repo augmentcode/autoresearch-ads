@@ -44,9 +44,14 @@ Print: `📡 [{i}/{total}] Fetching: {campaign_name}`
    - Query `ad_group` resource with `campaign.name = '{campaign_name}'`
      - Fields from `config.yaml` → `mcp_fields.ad_group`
      - Conditions: `ad_group.status = 'ENABLED'`, date range, `metrics.impressions > 0`
-   - Write to `data/partials/{campaign_name}-structure.json`:
+   - Write to `data/partials/{campaign_name}-structure.json`.
+     **Write MCP rows verbatim** — each row is a nested object as returned
+     by the MCP `search` tool (`{"campaign": {...}, "metrics": {...}}`).
+     Do NOT flatten into `{"name": "...", "metrics": {...}}` — `snapshot.py`
+     uses dot-notation traversal (`campaign.name`, `ad_group.id`, etc.) and
+     will produce `"unknown"` if the nesting is missing.
      ```json
-     {"campaigns": [...], "ad_groups": [...]}
+     {"campaigns": [<raw MCP rows>], "ad_groups": [<raw MCP rows>]}
      ```
 
 2. **Queries** — keywords + search terms
@@ -56,18 +61,24 @@ Print: `📡 [{i}/{total}] Fetching: {campaign_name}`
    - Query `search_term_view` with `campaign.name = '{campaign_name}'`
      - Fields from `config.yaml` → `mcp_fields.search_term`
      - Conditions: date range, `metrics.impressions > 10`
-   - Write to `data/partials/{campaign_name}-queries.json`:
+   - Write to `data/partials/{campaign_name}-queries.json`.
+     Write MCP rows verbatim (nested objects, not flattened).
      ```json
-     {"keywords": [...], "search_terms": [...]}
+     {"keywords": [<raw MCP rows>], "search_terms": [<raw MCP rows>]}
      ```
 
 3. **Assets** — headline + description performance
    - Query `ad_group_ad_asset_view` with `campaign.name = '{campaign_name}'`
      - Fields from `config.yaml` → `mcp_fields.asset`
      - Conditions: date range, `metrics.impressions > 0`
-   - Write to `data/partials/{campaign_name}-assets.json`:
+   - Write to `data/partials/{campaign_name}-assets.json`.
+     Write MCP rows verbatim (nested objects, not flattened), **except**:
+     convert `ad_group_ad_asset_view.field_type` from numeric enum to
+     string before writing. The MCP returns `2` for headlines and `3` for
+     descriptions, but `snapshot.py` does string matching (`"HEADLINE" in ...`).
+     Map: `2 → "HEADLINE"`, `3 → "DESCRIPTION"`, anything else → keep as-is.
      ```json
-     {"assets": [...]}
+     {"assets": [<raw MCP rows with field_type as string>]}
      ```
 
 Print: `  ✓ {campaign_name} done ({N} assets, {M} keywords, {P} search terms)`
