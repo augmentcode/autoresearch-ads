@@ -231,6 +231,15 @@ Read `data/snapshot.json`. Identify:
   3. **Filter out** any term whose text overlaps with an active positive keyword in the same ad group (a negative that matches a keyword suppresses your own ads).
   4. **Filter out** brand terms listed in `product.md`.
   5. For surviving candidates, note: term text, ad group, clicks, estimated cost (`clicks × avg_cpc`), and conversions. Also classify the failure pattern (price intent: "free/pricing/cost"; informational: "tutorial/reddit/how to"; wrong product: competitor names not in scope; etc.) — this helps choose match type.
+- **Keyword expansion candidates** — mine `snapshot.json → search_terms` for coverage gaps:
+  1. Collect all terms where (`conversions >= 1`) OR (`clicks >= 20` AND `ctr >= 1.5 × account median CTR`).
+  2. **Filter out** terms already covered by an existing keyword. Apply match-type logic in Python:
+     - **Exact** `[kw]`: covered if search term == keyword text (case-insensitive).
+     - **Phrase** `"kw"`: covered if keyword text is a contiguous substring of the search term.
+     - **Broad** `kw`: covered if all words in the keyword appear in the search term (any order).
+     If the term is covered at any match type, skip it.
+  3. **Filter out** brand terms and competitor names already in your keyword list (they're likely already targeted).
+  4. For surviving candidates, note: term text, ad group, conversions, clicks, CTR. Choose match type: `exact` for long-tail (3+ words, converting); `phrase` as default.
 - What did you learn from scored experiments in Step 3?
 
 Read `memory/learnings.md` if it exists. Factor in cumulative knowledge.
@@ -296,6 +305,16 @@ Write proposals to `copy.json`. Three proposal types are valid — always includ
       "cost_usd": 162.40,
       "conversions": 0,
       "hypothesis": "89 clicks, $162 spent, 0 conv. Price-intent modifier — confirmed loser pattern across the account."
+    },
+    {
+      "type": "keyword_expansion",
+      "ad_group": "claude_code",
+      "term": "claude code parallel agents",
+      "match_type": "phrase",
+      "conversions": 2,
+      "clicks": 15,
+      "ctr": 0.18,
+      "hypothesis": "Converts at 13.3% CR, not in keyword list. Phrase match captures volume from this intent without over-specifying."
     }
   ]
 }
@@ -306,6 +325,11 @@ Write proposals to `copy.json`. Three proposal types are valid — always includ
 - `match_type`: default to `"exact"`. Use `"phrase"` only for clear pattern prefixes/suffixes (e.g. "free [anything]"). Never use `"broad"` for negatives — it is too aggressive and can suppress legitimate traffic.
 - Cap at **10 negative keyword proposals per cycle** to prevent over-pruning. Prioritise by cost_usd descending.
 - Do NOT propose the same term that was proposed (and logged) in a prior cycle — check `memory/experiments.jsonl` for existing `"type": "negative_keyword"` entries before writing proposals.
+
+**`keyword_expansion` proposal rules:**
+- `match_type`: `"exact"` for long-tail converting terms (3+ words); `"phrase"` as default. Never propose `"broad"` — broad match is already handled by parent keywords.
+- Cap at **5 expansion keywords per cycle** to avoid keyword list bloat. Prioritise by conversions desc, then clicks desc.
+- Do NOT propose a term already proposed in a prior cycle — check `memory/experiments.jsonl` for existing `"type": "keyword_expansion"` entries.
 
 Git commit and push: `cycle N: propose copy changes`
 
@@ -332,9 +356,17 @@ Git commit and push: `cycle N: propose copy changes`
   DATA:     89 clicks · $162 spent · 0 conv
   WHY:      Your hypothesis
 
+  KEYWORD EXPANSIONS
   ───────────────────────────────────────────────
-  Copy changes:      N (X headlines, Y descriptions)
-  Negative keywords: N (estimated $X saved/30d)
+  AD GROUP: claude_code
+  ADD:      "claude code parallel agents" [phrase]
+  DATA:     15 clicks · 2 conv · 13.3% CR
+  WHY:      Your hypothesis
+
+  ───────────────────────────────────────────────
+  Copy changes:       N (X headlines, Y descriptions)
+  Negative keywords:  N (estimated $X saved/30d)
+  Keyword expansions: N
   Total ad groups affected: M
 ═══════════════════════════════════════════════════
 ```
@@ -493,7 +525,33 @@ Call this the *base ad*. `resource_name` is `old_ad_id`; `headlines` /
       this step to call it with `validate_only: true` then `validate_only: false`,
       record the returned `criterion_resource_name`, and set `status: "launched"`.
 
-**7. Error handling.**
+**7. Deploy — `keyword_expansion` path.**
+
+   ⚠️ **Pending MCP tool.** The `google-ads-write` MCP does not yet expose
+   an `add_keyword` tool. Until it does, follow this path:
+
+   a. For each approved `keyword_expansion` proposal, **log it with
+      `"status": "pending_tool"` and `"failure_reason": "add_keyword MCP tool not yet available"`**.
+   b. At the end of Step 8, append the keyword expansions to the manual entry block:
+
+   ```
+   ── KEYWORD EXPANSIONS — MANUAL ENTRY REQUIRED ──────────────────
+   The following keywords were approved but cannot be deployed
+   automatically. Add them in Google Ads UI → Keywords → + New keyword.
+
+   claude_code (phrase match):
+     "claude code parallel agents"
+
+   sdd (exact match):
+     [spec driven development tool]
+   ────────────────────────────────────────────────────────────────
+   ```
+
+   c. Once an `add_keyword` MCP tool becomes available, update this step
+      to call it with `validate_only: true` then `validate_only: false`,
+      record the returned `criterion_resource_name`, and set `status: "launched"`.
+
+**8. Error handling.**
    Always run `validate_only: true` first on every mutate call. If any
    write step fails, log the failure (with `error_code` and `request_id`)
    and continue with the remaining ad groups. Partial deploys are
@@ -550,6 +608,33 @@ to Step 8 and to Step 3 of future cycles.
 }
 ```
 
+**For `keyword_expansion` entries:**
+```json
+{
+  "id": "2026-04-08-003",
+  "cycle": 5,
+  "timestamp": "ISO-8601",
+  "experiment_type": "keyword_expansion",
+  "type": "keyword_expansion",
+  "ad_group": "claude_code",
+  "term": "claude code parallel agents",
+  "match_type": "phrase",
+  "conversions": 2,
+  "clicks": 15,
+  "ctr": 0.18,
+  "hypothesis": "Converts at 13.3% CR, not in keyword list.",
+  "criterion_resource_name": null,
+  "status": "pending_tool",
+  "failure_reason": "add_keyword MCP tool not yet available"
+}
+```
+
+Keyword expansion entries do **not** have `result_conversion_rate` or `outcome` fields
+in the traditional sense — success is measured by whether the keyword starts accumulating
+impressions and converting in subsequent snapshots. Step 3 skips `keyword_expansion`
+entries when scoring. To verify impact, check the keyword in the next snapshot's
+`keywords` section for impression and conversion data.
+
 Negative keyword entries do **not** have `result_conversion_rate` or `outcome` fields —
 there is no before/after CR to measure once a term is blocked. Step 3 skips
 `negative_keyword` entries entirely when scoring. To verify impact, compare
@@ -563,9 +648,9 @@ Field reference:
 - `new_ad_id` — resource name of the newly created ad. Never null on a
   successful deploy. Not present on `negative_keyword` entries.
 - `criterion_resource_name` — resource name returned by `add_negative_keyword`
-  on a successful deploy. Null until the MCP tool is available.
+  or `add_keyword` on a successful deploy. Null until the respective MCP tool is available.
 - `experiment_id` — resource name of the `experiment` resource for
-  ad_variation entries; always null for direct_swap and negative_keyword.
+  ad_variation entries; always null for direct_swap, negative_keyword, and keyword_expansion.
 
 If a proposal fails to deploy, append it anyway with
 `"status": "deployment_failed"`, `"failure_reason": "<error_code> <message>"`,
