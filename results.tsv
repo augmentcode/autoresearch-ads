@@ -1,3 +1,4 @@
 cycle	date	conv_rate	cost_per_conv	assets_deployed	winners	losers	status	description
 1	2026-04-07	0.004916	1035.90	0	0	0	baseline	initial snapshot
 2	2026-04-08	0.005622	907.09	6	0	0	keep	replaced 2 headlines in claude_code, 2 in ralph, 2 in sdd
+3	2026-04-09	0.005716	878.70	2	0	0	keep	replaced 1 headline in orchestration, 1 in worktrees; ade skipped (DKI constraint)
