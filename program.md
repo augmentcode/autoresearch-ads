@@ -225,6 +225,12 @@ Read `data/snapshot.json`. Identify:
   - Analyze **headlines** (`snapshot.json → assets.headlines`) and **descriptions** (`snapshot.json → assets.descriptions`) separately. Both are scoreable and both should produce proposals in Step 5.
 - Which assets convert best? What do they have in common?
 - What search terms lead to conversions vs which don't?
+- **Negative keyword candidates** — score `snapshot.json → search_terms` for wasted spend:
+  1. Collect all terms where `clicks >= 30` AND `conversions == 0`.
+  2. **Filter out** any term that is already a negative keyword in the account (query `ad_group_criterion` or `campaign_criterion` resources for `type = NEGATIVE` if needed — skip this sub-step if it would require extra MCP calls that risk truncation; flag the uncertainty instead).
+  3. **Filter out** any term whose text overlaps with an active positive keyword in the same ad group (a negative that matches a keyword suppresses your own ads).
+  4. **Filter out** brand terms listed in `product.md`.
+  5. For surviving candidates, note: term text, ad group, clicks, estimated cost (`clicks × avg_cpc`), and conversions. Also classify the failure pattern (price intent: "free/pricing/cost"; informational: "tutorial/reddit/how to"; wrong product: competitor names not in scope; etc.) — this helps choose match type.
 - What did you learn from scored experiments in Step 3?
 
 Read `memory/learnings.md` if it exists. Factor in cumulative knowledge.
@@ -257,7 +263,7 @@ list. (You can batch this: call `get_ad` once per ad group you have
 proposals for, then validate all your proposals against the returned
 headlines.)
 
-Write proposals to `copy.json`. Both `"headline"` and `"description"` proposals are valid and expected — always include both types when the data supports it:
+Write proposals to `copy.json`. Three proposal types are valid — always include all types when the data supports it:
 
 ```json
 {
@@ -279,30 +285,57 @@ Write proposals to `copy.json`. Both `"headline"` and `"description"` proposals 
       "original_conversion_rate": 0.0,
       "new_text": "Your proposed description here",
       "hypothesis": "Why you think this converts better"
+    },
+    {
+      "type": "negative_keyword",
+      "ad_group": "claude_code",
+      "scope": "ad_group",
+      "term": "free claude code download",
+      "match_type": "exact",
+      "clicks": 89,
+      "cost_usd": 162.40,
+      "conversions": 0,
+      "hypothesis": "89 clicks, $162 spent, 0 conv. Price-intent modifier — confirmed loser pattern across the account."
     }
   ]
 }
 ```
 
+**`negative_keyword` proposal rules:**
+- `scope`: `"ad_group"` (default, precise) or `"campaign"` (for universal failure patterns like "free", "reddit", "how to" that fail across every ad group).
+- `match_type`: default to `"exact"`. Use `"phrase"` only for clear pattern prefixes/suffixes (e.g. "free [anything]"). Never use `"broad"` for negatives — it is too aggressive and can suppress legitimate traffic.
+- Cap at **10 negative keyword proposals per cycle** to prevent over-pruning. Prioritise by cost_usd descending.
+- Do NOT propose the same term that was proposed (and logged) in a prior cycle — check `memory/experiments.jsonl` for existing `"type": "negative_keyword"` entries before writing proposals.
+
 Git commit and push: `cycle N: propose copy changes`
 
 ### Step 6: Review Gate
 
-**STOP here and present your proposals to the human.** Print a clear summary:
+**STOP here and present your proposals to the human.** Print a clear summary, grouped by type:
 
 ```
 ═══════════════════════════════════════════════════
   PROPOSALS READY FOR REVIEW — Cycle N
 ═══════════════════════════════════════════════════
 
-  [For each proposal:]
+  COPY CHANGES (headlines + descriptions)
+  ───────────────────────────────────────────────
   AD GROUP: claude_code
   REPLACE:  "Old Headline Text" (conv_rate: 0.15%)
   WITH:     "New Headline Text" (27 chars)
   WHY:      Your hypothesis
 
+  NEGATIVE KEYWORDS
   ───────────────────────────────────────────────
-  Total: N proposals across M ad groups
+  AD GROUP: claude_code  |  SCOPE: ad_group
+  BLOCK:    "free claude code download" [exact]
+  DATA:     89 clicks · $162 spent · 0 conv
+  WHY:      Your hypothesis
+
+  ───────────────────────────────────────────────
+  Copy changes:      N (X headlines, Y descriptions)
+  Negative keywords: N (estimated $X saved/30d)
+  Total ad groups affected: M
 ═══════════════════════════════════════════════════
 ```
 
@@ -433,7 +466,34 @@ Call this the *base ad*. `resource_name` is `old_ad_id`; `headlines` /
       this is.
    c. Do NOT call `pause_ad` — the base ad must keep serving as the control.
 
-**6. Error handling.**
+**6. Deploy — `negative_keyword` path.**
+
+   ⚠️ **Pending MCP tool.** The `google-ads-write` MCP does not yet expose
+   an `add_negative_keyword` tool. Until it does, follow this path:
+
+   a. For each approved `negative_keyword` proposal, **log it with
+      `"status": "pending_tool"` and `"failure_reason": "add_negative_keyword MCP tool not yet available"`** instead of deploying.
+   b. At the end of Step 8, print a consolidated block for manual action:
+
+   ```
+   ── NEGATIVE KEYWORDS — MANUAL ENTRY REQUIRED ──────────────────
+   The following negatives were approved but cannot be deployed
+   automatically. Add them in Google Ads UI → Keywords → Negatives.
+
+   claude_code (ad group level, exact match):
+     [free claude code download]
+     [claude code free]
+
+   ralph (campaign level, phrase match):
+     "free"
+   ────────────────────────────────────────────────────────────────
+   ```
+
+   c. Once an `add_negative_keyword` MCP tool becomes available, update
+      this step to call it with `validate_only: true` then `validate_only: false`,
+      record the returned `criterion_resource_name`, and set `status: "launched"`.
+
+**7. Error handling.**
    Always run `validate_only: true` first on every mutate call. If any
    write step fails, log the failure (with `error_code` and `request_id`)
    and continue with the remaining ad groups. Partial deploys are
@@ -444,7 +504,9 @@ to Step 8 and to Step 3 of future cycles.
 
 ### Step 8: Log
 
-1. **experiments.jsonl** — Append one entry per deployed proposal:
+1. **experiments.jsonl** — Append one entry per deployed proposal.
+
+**For `headline` and `description` entries:**
 ```json
 {
   "id": "2026-04-08-001",
@@ -466,15 +528,44 @@ to Step 8 and to Step 3 of future cycles.
 }
 ```
 
-Field reference for the write-MCP-era fields:
-- `experiment_type` — `"direct_swap"` (default) or `"ad_variation"`.
+**For `negative_keyword` entries:**
+```json
+{
+  "id": "2026-04-08-002",
+  "cycle": 5,
+  "timestamp": "ISO-8601",
+  "experiment_type": "negative_keyword",
+  "type": "negative_keyword",
+  "ad_group": "claude_code",
+  "scope": "ad_group",
+  "term": "free claude code download",
+  "match_type": "exact",
+  "clicks": 89,
+  "cost_usd": 162.40,
+  "conversions": 0,
+  "hypothesis": "Why this term wastes spend",
+  "criterion_resource_name": null,
+  "status": "pending_tool",
+  "failure_reason": "add_negative_keyword MCP tool not yet available"
+}
+```
+
+Negative keyword entries do **not** have `result_conversion_rate` or `outcome` fields —
+there is no before/after CR to measure once a term is blocked. Step 3 skips
+`negative_keyword` entries entirely when scoring. To verify impact, compare
+the term's click volume across snapshots: if it disappears, the negative is working.
+
+Field reference:
+- `experiment_type` — `"direct_swap"`, `"ad_variation"`, or `"negative_keyword"`.
 - `old_ad_id` — resource name of the ad that was paused (direct_swap) or
   of the base ad the variation runs against (ad_variation). Never null on
-  a successful deploy.
+  a successful deploy. Not present on `negative_keyword` entries.
 - `new_ad_id` — resource name of the newly created ad. Never null on a
-  successful deploy.
+  successful deploy. Not present on `negative_keyword` entries.
+- `criterion_resource_name` — resource name returned by `add_negative_keyword`
+  on a successful deploy. Null until the MCP tool is available.
 - `experiment_id` — resource name of the `experiment` resource for
-  ad_variation entries; always null for direct_swap.
+  ad_variation entries; always null for direct_swap and negative_keyword.
 
 If a proposal fails to deploy, append it anyway with
 `"status": "deployment_failed"`, `"failure_reason": "<error_code> <message>"`,
