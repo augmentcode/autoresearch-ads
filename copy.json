@@ -1,54 +1,30 @@
 {
-  "cycle": 2,
-  "date": "2026-04-08",
+  "cycle": 3,
+  "date": "2026-04-09",
   "proposals": [
     {
       "type": "headline",
-      "ad_group": "claude_code",
-      "original": "Your Agents Stay Aligned Here",
+      "ad_group": "orchestration",
+      "original": "Reimagine Your AI Workflows",
       "original_conversion_rate": 0.0,
-      "new_text": "Skip the Prompt Wrangling",
-      "hypothesis": "730 imp, 19 clicks, 0 conv. Abstract benefit claim. 'No More Pasting Into Prompts' converts at 8.3% in same RSA — pain-point elimination outperforms vague benefit framing. This mirrors that pattern."
+      "new_text": "Spec-First Agent Orchestration",
+      "hypothesis": "Reimagine is aspirational fluff with 0 conversion signal. Spec-first mirrors sdd's converting pattern (Move Up the Stack to SDD, Spec-Driven Development both convert). Orchestration searchers who think spec-first are the same high-intent buyers."
     },
     {
       "type": "headline",
-      "ad_group": "claude_code",
-      "original": "Agents Share Context via Spec",
+      "ad_group": "worktrees",
+      "original": "Parallel Git Worktree AI",
       "original_conversion_rate": 0.0,
-      "new_text": "Prompt to Merged PR in Intent",
-      "hypothesis": "300 imp, 7 clicks, 0 conv. Too technical/abstract. 'Spec to PR With Claude Code' converts at 3.1% — workflow-outcome headlines work. This names the end state (merged PR) and the product."
+      "new_text": "Run Agents in Git Worktrees",
+      "hypothesis": "34 clicks, 0 conversions — keyword stuffing fails. New headline speaks directly to git worktree searchers: Intent runs agents inside worktrees, so this frames it as the next step in their workflow. Action verb + specific mechanism."
     },
     {
       "type": "headline",
-      "ad_group": "ralph",
-      "original": "Download Free for Mac",
+      "ad_group": "ade",
+      "original": "Automated Agent Workflows",
       "original_conversion_rate": 0.0,
-      "new_text": "Visual Diffs for Ralph Loop",
-      "hypothesis": "Price-first messaging has 0 conversions across entire account (3,000+ clicks). Ralph users want what Intent adds to Ralph — visual diffs/workspace — not free offers."
-    },
-    {
-      "type": "headline",
-      "ad_group": "ralph",
-      "original": "From Code To Intent",
-      "original_conversion_rate": 0.0,
-      "new_text": "Ralph Loop in One Workspace",
-      "hypothesis": "Too abstract, 0 conversions. 'Claude Code in One Workspace' is the top headline at 2.0% CR (7 conv). This applies the identical proven structure to the Ralph audience."
-    },
-    {
-      "type": "headline",
-      "ad_group": "sdd",
-      "original": "From Spec To PR In Parallel",
-      "original_conversion_rate": 0.0,
-      "new_text": "Spec to PR No Tab Switching",
-      "hypothesis": "170 clicks, 0 conversions. 'In Parallel' is abstract. 'No tab switching' names the concrete friction Intent eliminates, grounded in product.md claim 'prompt to PR without leaving the app'."
-    },
-    {
-      "type": "headline",
-      "ad_group": "sdd",
-      "original": "Streamline Your AI Workflows",
-      "original_conversion_rate": 0.0,
-      "new_text": "Define What Agents Handle How",
-      "hypothesis": "Generic AI workflow language, 0 conversions. Intent's differentiator is spec-driven development — the developer defines what, agents handle how. This is a direct product.md claim."
+      "new_text": "Intent Is Your Agentic IDE",
+      "hypothesis": "agentic ide search term converts (~100% CR on 1 click). Automated Agent Workflows is generic. Direct name-match to the converting search term. Ade already converts at 10.89% — this headline targets the highest-intent searcher in the group."
     }
   ]
 }
