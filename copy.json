@@ -24,7 +24,41 @@
       "original": "Automated Agent Workflows",
       "original_conversion_rate": 0.0,
       "new_text": "Intent Is Your Agentic IDE",
-      "hypothesis": "agentic ide search term converts (~100% CR on 1 click). Automated Agent Workflows is generic. Direct name-match to the converting search term. Ade already converts at 10.89% — this headline targets the highest-intent searcher in the group."
+      "hypothesis": "agentic ide search term converts (~100% CR on 1 click). Automated Agent Workflows is generic. Direct name-match to the converting search term. Ade already converts at 10.89% — this headline targets the highest-intent searcher in the group.",
+      "status": "deployment_failed",
+      "failure_reason": "DKI headline {KeyWord:Agentic Dev Environment} is 33 chars, exceeds tool maxLength:30 schema — cannot reproduce in new RSA without losing DKI"
+    },
+    {
+      "type": "description",
+      "ad_group": "ralph",
+      "original": "Run multiple AI coding agents in parallel without conflicts.",
+      "original_conversion_rate": 0.0,
+      "new_text": "Ralph loops run faster in Intent. Visual diffs, parallel worktrees, no conflicts.",
+      "hypothesis": "167 clicks, 0 conv. This exact text converts at 10% in conductor but fails for ralph — audience mismatch. Ralph searchers need transition value from their existing workflow, not a generic parallel agents pitch. Ralph-specific framing tests whether named continuity converts."
+    },
+    {
+      "type": "description",
+      "ad_group": "ralph",
+      "original": "Intent's Coordinator breaks down work, specialist agents execute everything.",
+      "original_conversion_rate": 0.0,
+      "new_text": "Your Ralph prompts. Intent's workspace. Add parallel worktrees and visual diffs.",
+      "hypothesis": "165 clicks, 0 conv. Abstract coordinator language doesn't convert. Concrete tool transfer (your prompts → our workspace) mirrors the Claude Code in One Workspace headline pattern (7 conv). Ownership framing reduces switching friction."
+    },
+    {
+      "type": "description",
+      "ad_group": "sdd",
+      "original": "Orchestrate multiple AI agents with integrated terminal, browser & IDE context",
+      "original_conversion_rate": 0.0,
+      "new_text": "Spec-to-PR in one workspace. Agents implement in parallel, you review the diff.",
+      "hypothesis": "245 clicks, 0 conv. Capability list (terminal, browser, IDE) doesn't convert for sdd intent. Concrete workflow outcome (spec → PR, you review the diff) mirrors the converting headline pattern and puts the buyer in control."
+    },
+    {
+      "type": "description",
+      "ad_group": "sdd",
+      "original": "A unified workspace for SDD. Integrated terminal, browser, and agents for faster coding",
+      "original_conversion_rate": 0.0,
+      "new_text": "Write a spec, agents handle the rest. Terminal, diffs, and preview built in.",
+      "hypothesis": "132 clicks, 0 conv. Unified workspace is generic. Write a spec mirrors claude_code_mac's 8% CR description pattern. Tooling callout (terminal, diffs, preview) provides concrete grounding without feature-list bloat."
     }
   ]
 }
