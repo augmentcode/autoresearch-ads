@@ -222,6 +222,7 @@ Read `data/snapshot.json`. Identify:
 
 - Which ad groups have the worst conversion rates?
 - Which assets have high clicks but low conversions (wasted spend)?
+  - Analyze **headlines** (`snapshot.json → assets.headlines`) and **descriptions** (`snapshot.json → assets.descriptions`) separately. Both are scoreable and both should produce proposals in Step 5.
 - Which assets convert best? What do they have in common?
 - What search terms lead to conversions vs which don't?
 - What did you learn from scored experiments in Step 3?
@@ -256,7 +257,7 @@ list. (You can batch this: call `get_ad` once per ad group you have
 proposals for, then validate all your proposals against the returned
 headlines.)
 
-Write proposals to `copy.json`:
+Write proposals to `copy.json`. Both `"headline"` and `"description"` proposals are valid and expected — always include both types when the data supports it:
 
 ```json
 {
@@ -268,7 +269,15 @@ Write proposals to `copy.json`:
       "ad_group": "claude_code",
       "original": "Free with Claude Code Sub",
       "original_conversion_rate": 0.028,
-      "new_text": "Your proposed text here",
+      "new_text": "Your proposed headline here",
+      "hypothesis": "Why you think this converts better"
+    },
+    {
+      "type": "description",
+      "ad_group": "claude_code",
+      "original": "Already have a Claude Code subscription? Use Intent complete...",
+      "original_conversion_rate": 0.0,
+      "new_text": "Your proposed description here",
       "hypothesis": "Why you think this converts better"
     }
   ]
@@ -391,6 +400,9 @@ Call this the *base ad*. `resource_name` is `old_ad_id`; `headlines` /
      - Strip trailing `.`, `!`, `?`, `,`, `:`, `;`
      - Replace smart quotes (`'`, `'`, `"`, `"`) with straight quotes
      - Replace en-dash (`–`) and em-dash (`—`) with hyphen (`-`)
+     **Scope the search by `type`**: proposals with `"type": "headline"`
+     match only against `base.headlines`; proposals with
+     `"type": "description"` match only against `base.descriptions`.
      If no asset matches the proposal's `original`, log a warning and
      skip that proposal — do NOT silently invent the swap.
    - Replace the matched asset's `text` with `new_text` while
@@ -439,7 +451,7 @@ to Step 8 and to Step 3 of future cycles.
   "cycle": 5,
   "timestamp": "ISO-8601",
   "experiment_type": "direct_swap",
-  "type": "headline",
+  "type": "headline",            // "headline" or "description"
   "ad_group": "claude_code",
   "original": "Free with Claude Code Sub",
   "original_conversion_rate": 0.028,
