@@ -668,6 +668,13 @@ cycle	date	conv_rate	cost_per_conv	assets_deployed	winners	losers	status	descrip
    - Patterns that have lost (with data)
    - Rules derived from >= 3 data points
 
+**Step 8 completion gate — do NOT proceed to Step 9 until all three are verified:**
+- [ ] `experiments.jsonl` — new entries appended for this cycle
+- [ ] `results.tsv` — new row appended for this cycle
+- [ ] `learnings.md` — regenerated with this cycle's scored outcomes, confirmed losers/winners, and updated rules
+
+If `learnings.md` was not updated, update it NOW before continuing. Stale learnings cause the agent to repeat mistakes in future cycles.
+
 Git commit and push: `cycle N: deploy + log results`
 
 ### Step 9: Stop
