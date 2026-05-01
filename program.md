@@ -126,6 +126,15 @@ Read `data/snapshot.json`. This is your compressed view of the account — use i
 
 ### Step 3: Score Previous Experiments
 
+**Data maturity gate.** Do NOT score an experiment until its ad has
+accumulated **≥ 150 clicks**. Below that threshold, conversion rate
+estimates are too noisy to distinguish signal from variance. When an
+experiment has < 150 clicks, leave its status as `"launched"` and print:
+
+```
+⏳ {ad_group} ({experiment_id}): {clicks} clicks — need ≥ 150 to score. Skipping.
+```
+
 Read `memory/experiments.jsonl`. Find entries with `"status": "launched"`.
 If there are none, this step is a no-op — skip to Step 4.
 
@@ -218,6 +227,27 @@ os.replace(temp_path, EXPERIMENTS_PATH)
 
 ### Step 4: Analyze
 
+**Cycle mode.** Each cycle operates in one of three modes. Determine the
+mode before doing any analysis:
+
+1. **Observe** — No experiments crossed the 150-click scoring threshold
+   AND no ad group has ≥ 100 clicks/30d available for a new experiment.
+   Pull data, update snapshot, log the observation row in `results.tsv`
+   with `status: "observe"` and `assets_deployed: 0`. Skip Steps 5–7.
+2. **Score** — One or more experiments crossed the 150-click threshold.
+   Score them in Step 3. If no ad group has ≥ 100 clicks/30d available
+   for a new experiment, skip Steps 5–7 after scoring.
+3. **Act** — At least one ad group has ≥ 100 clicks/30d AND either no
+   experiment is currently running in that group, or a scored experiment
+   freed it up. Proceed through Steps 5–7, but limit to **1–2 new
+   experiments per cycle**, prioritised by click volume descending.
+
+Print the mode at the top of your analysis:
+
+```
+🔄 Cycle mode: OBSERVE | SCORE | ACT
+```
+
 Read `data/snapshot.json`. Identify:
 
 - Which ad groups have the worst conversion rates?
@@ -247,6 +277,22 @@ Read `memory/learnings.md` if it exists. Factor in cumulative knowledge.
 You decide what matters. There are no prescribed frameworks — look at the data and find the signal.
 
 ### Step 5: Generate Copy
+
+**Volume gate.** Do NOT propose copy changes for any ad group with
+< 100 clicks in the last 30 days. At that volume, there is no way to
+validate a copy hypothesis within a single scoring window. For
+low-volume groups, the only permissible actions are negative keywords
+and pauses.
+
+**Concurrency limit.** Do NOT propose a new copy experiment in an ad
+group that already has a `"status": "launched"` experiment in
+`memory/experiments.jsonl`. Wait for the existing experiment to be
+scored (or manually cancelled) first. Running overlapping experiments
+in the same group makes attribution impossible.
+
+**Experiment cap.** Propose at most **2 copy experiments per cycle**,
+in the highest-volume eligible ad groups. This ensures each experiment
+gets the full data window rather than splitting attention.
 
 Based on your analysis, propose copy changes. For each change:
 - **What you're replacing**: the specific asset text and its current conversion_rate.
@@ -401,17 +447,16 @@ reads and writes. It exposes:
 - `graduate_experiment` — promotes a winning variation
 
 **Decision: direct_swap vs ad_variation.**
-- **direct_swap (default)** — Use for every deploy unless you have a
-  specific reason to run a statistical test. Faster, simpler, produces an
-  immediate copy change. The new RSA starts serving immediately and the old
-  one stops.
-- **ad_variation** — Use when you want statistical confidence on a small
-  change (e.g. swapping a single headline) and you're willing to wait 1–2
-  weeks for Google to collect data. The base RSA keeps serving alongside
-  the variant as the control. Never pause the base ad in this path.
+- **ad_variation (default for converting groups)** — Use whenever the ad
+  group has **≥ 1 conversion in the last 30 days**. This protects the
+  existing converting ad by keeping it as the control while the variant
+  collects data. The C2 claude_code direct swap destroyed a 1.56% CR ad
+  and cost ~$640 — that mistake is never repeated.
+- **direct_swap** — Use ONLY when the ad group has **0 conversions in the
+  last 30 days**. There is nothing to protect, so a direct swap is safe
+  and faster.
 
-Default to `direct_swap` unless a proposal in `copy.json` explicitly sets
-`"experiment_type": "ad_variation"`.
+This is not optional. If the ad group converts, you MUST use ad_variation.
 
 **1. Group approved proposals by `ad_group`.**
    All proposals for the same ad group become a single new RSA creation.
@@ -702,8 +747,9 @@ Stop. The next cycle runs tomorrow when conversion data has accumulated.
 - **Secondary metric**: `cost_per_conversion` = cost / conversions
 - **Winner threshold**: >= 20% improvement in conversion_rate over original
 - **Loser threshold**: >= 20% decline in conversion_rate vs original
-- **Minimum data**: asset must have >= `min_impressions` (from config) before scoring
-- **Confidence**: `high` if impressions >= 1000, `medium` 500-999, `low` 100-499
+- **Minimum clicks to score**: **150 clicks** (data maturity gate). Do not
+  score any experiment below this threshold — leave it as `"launched"`.
+- **Confidence**: `high` if clicks >= 500, `medium` 150-499, `low` < 150 (not scoreable)
 
 ## results.tsv Format
 
