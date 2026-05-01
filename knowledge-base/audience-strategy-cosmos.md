@@ -66,11 +66,30 @@ These are the primary targeting mechanism. Each combines search keywords + compe
 
 | Keywords | URLs |
 |----------|------|
-| cursor vs claude code, cursor vs copilot, devin vs cursor, claude code vs cursor, best ai coding agent, ai coding tools comparison, devin alternatives, cursor alternatives, github copilot alternatives, best ai pair programmer, ai coding tool review | cursor.com/pricing, cursor.com, github.com/features/copilot, cognition.ai, devin.ai, replit.com/ai, claude.com/claude-code, factory.ai, codeium.com, windsurf.com, qodo.ai |
+| cursor vs claude code, cursor vs copilot, devin vs cursor, claude code vs cursor, best ai coding agent, ai coding tools comparison, devin alternatives, cursor alternatives, github copilot alternatives, best ai pair programmer, ai coding tool review, cursor automations vs, cursor cloud agents limitations | cursor.com/pricing, cursor.com, github.com/features/copilot, cognition.ai, devin.ai, replit.com/ai, claude.com/claude-code, factory.ai, codeium.com, windsurf.com, qodo.ai |
 
 **Deploy to**: Search (branded competitor) + Demand Gen
 **Data backing**: Our Claude Mac campaign converts at 8.6% CR with 38 conv/mo — proof that competitor conquest *can* work when intent matches. The key is cursor.com/pricing visitors (7,867 US traffic) = high commercial intent signal.
 **Learning from our failures**: ralph (0 conv, 115 clicks) and gastown_ai (0 conv, 31 clicks) prove that not all competitor keywords convert. Use comparison-intent ("vs", "alternatives", "best") not just brand names.
+
+**Cursor-specific counter-messaging** (grounded in product intel):
+Use these angles when targeting Cursor evaluators — each maps to a genuine Poseidon advantage:
+
+| Cursor Limitation | Poseidon Counter | Ad Angle |
+|-------------------|-----------------|----------|
+| Single-agent only per automation | Manager-worker pattern, parallel workers | "One agent per task? Or an entire fleet." |
+| Single-repo per automation | Workers clone additional repos on the fly | "Your codebase isn't one repo. Your agent platform shouldn't be either." |
+| Pre-defined trigger dropdowns only | Full JSONLogic with AND/OR, nested predicates, raw payload access | "Trigger on any condition, not just the ones they thought of." |
+| Simple per-automation Memories | VFS — versioned shared filesystem, cross-session, cross-agent | "Agents that remember. Across sessions. Across teams." |
+| Dashboard-inherited environments | Custom Docker images, snapshot/restore, full VM lifecycle | "Your infra, your SDKs, your environment." |
+| No documented expert versioning | Immutable versions, diff, rollback, optimistic concurrency | "Infrastructure-as-code for your agents." |
+| Tool-level toggles for security | Zero-trust capabilities (7 explicit grants), OLAC, generation fencing | "Security your team will actually approve." |
+
+**Where NOT to attack Cursor** (they win here — don't highlight these):
+- Onboarding speed (their web UI is faster to first automation)
+- Computer use / desktop interaction (we don't have this)
+- GitLab support (they have it, we don't)
+- Self-hosted deployment option
 
 ### Segment 3: Cosmos – Platform & DevEx Leaders
 **Who**: Buyers, not users. They search for org-wide tooling, internal platforms, developer productivity. Higher LTV.
@@ -218,12 +237,34 @@ Based on live Google Ads intel (April 30, 2026):
 
 | Competitor | Their Play | Our Counter | Where to Fight |
 |-----------|-----------|-------------|---------------|
-| **Cursor** (40 ads, text-heavy) | Bidding hard on "cursor ai" (96K vol) defensively + "ai code editor" offensively | System-level reframing: "You don't need another editor — you need an OS for the fleet." URL-target cursor.com/pricing visitors | Segments 1, 2, 4 |
+| **Cursor** (40 ads, text-heavy) | Bidding hard on "cursor ai" (96K vol) defensively + "ai code editor" offensively. Launched cloud agents/automations — single-agent, single-repo, predefined triggers. Wins on onboarding speed ("time to first demo"). | **"Time to first demo vs time to production at scale."** Multi-agent orchestration (manager-worker), multi-repo, JSONLogic triggers, VFS persistent state, zero-trust security, expert versioning. Don't attack their UX speed — attack their ceiling. URL-target cursor.com/pricing visitors. | Segments 1, 2, 4 |
 | **Anthropic/Claude** (40 ads, heavy video) | Massive brand budget pushing Claude Code as CLI agent | Agent fleet vs single agent: "Claude Code is one agent. Cosmos runs the fleet." | Segments 2, 4 |
 | **Replit** (40 ads, mixed format) | Pivoted to "vibe coding" (88K vol) + "AI app builder" | Don't compete — different market (consumer/prosumer). Block "vibe coding" as negative keyword | Negative keyword only |
 | **Devin/Cognition** (2 ads only) | Surprisingly light Google paid. PR/LinkedIn focused | **Major opportunity** — dominate Google paid in "autonomous SWE" space before Cognition invests | Segments 1, 5 |
 
 **The gap**: Cognition (Devin) is Cosmos's closest *positioning* competitor (both sell autonomous software engineering) but has almost zero Google Ads presence. First-mover advantage on "autonomous coding agent" (40 vol, KD=low), "ai software engineer" (1.7K vol), and "agentic software development" (100 vol, KD=2).
+
+### Poseidon's 13 Differentiators (Use in Ad Copy & Landing Pages)
+
+Ranked by audience impact. Use these to inform headlines, descriptions, and landing page sections:
+
+| # | Differentiator | Best Segment | Ad Angle |
+|---|---------------|-------------|----------|
+| 1 | **Multi-agent orchestration** — manager-worker, parallel workers, per-launch model/repo overrides | Seg 1, 4 | "Orchestrate a fleet of agents, not just one." |
+| 2 | **VFS (persistent shared memory)** — versioned, cross-session, cross-agent filesystem | Seg 3, 4 | "Agents that build on each other's work." |
+| 3 | **JSONLogic triggers** — AND/OR grouping, nested predicates, raw payload access | Seg 3, 4 | "Trigger on any condition. Not just the ones they thought of." |
+| 4 | **Multi-repo workflows** — workers clone additional repos on the fly | Seg 3, 5 | "Your codebase spans repos. Your agents should too." |
+| 5 | **Custom environments** — Docker images, snapshot/restore, full VM lifecycle | Seg 4 | "Your infra. Your SDKs. Your environment." |
+| 6 | **Expert versioning** — immutable versions, diff, rollback, infrastructure-as-code | Seg 3, 5 | "Version your agents like you version your code." |
+| 7 | **Zero-trust security** — 7 capability grants, OLAC, generation fencing, encrypted secrets | Seg 3, 5 | "Enterprise security your team will actually approve." |
+| 8 | **Webhook power** — bidirectional, JSONLogic payload filtering | Seg 4 | "Connect to anything. Filter on everything." |
+| 9 | **Hooks ecosystem** — PreToolUse, PostToolUse, SessionStart/End, regex tool matchers | Seg 4 | "Full control at every step of the agent lifecycle." |
+| 10 | **Billing controls** — hard/soft quotas, per-user overrides, VM admission control | Seg 3, 5 | "Usage controls that scale with your team." |
+| 11 | **Model breadth** — Claude, GPT, Gemini, Mercury, GLM; effort levels per model | Seg 4, 5 | "Choose the right model for each agent, each task." |
+| 12 | **VM log streaming** — real-time log access + GCP Cloud Logging | Seg 3 | "Full observability into what your agents are doing." |
+| 13 | **Deep links** — custom scheme, universal links, expert links with message override | Seg 4 | "Launch agents from anywhere — Slack, docs, dashboards." |
+
+**Concede gracefully on**: Onboarding speed, computer use, GitLab support, self-hosted deployment. Frame as: *"Cursor wins on time to first demo. Poseidon wins on time to production at scale."*
 
 ---
 
