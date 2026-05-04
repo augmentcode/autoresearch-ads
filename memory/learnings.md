@@ -1,6 +1,6 @@
 # Learnings
 
-Generated from experiments.jsonl. Last updated: 2026-04-27 (Cycle 8).
+Generated from experiments.jsonl. Last updated: 2026-05-04 (Cycle 9).
 
 ## Confirmed Winners ✅
 
@@ -25,12 +25,14 @@ Generated from experiments.jsonl. Last updated: 2026-04-27 (Cycle 8).
 6. **gastown_ai** — 0 conv EVER: 31+ clicks, $517/mo across 3 ads. Pause recommended.
 7. **coding_agent** — 0 conv EVER: 3 ads failed consecutively. DKI ad can't be restored. Pause recommended.
 
-## Still Running 🟡
+## Still Running 🟡 (150-click maturity gate applies)
 
 | Experiment | Ad Group | Age | Clicks | Conv | Status |
 |---|---|---|---|---|---|
-| C5 | claude_code rollback | 7d | 43 | 0 | Concerning, too early |
-| C3 | orchestration | 18d | 18 | 0 | CTR up, low volume |
+| C5 | claude_code rollback | 18d | 89 | 0 | 89/150 clicks. 0 conv concerning but below scoring threshold. |
+| C8 | sdd rollback | 7d | 27 | 0 | 27/150 clicks. Too early. |
+| C3 | orchestration | 25d | 27 | 0 | 27/150 clicks. Very slow volume (~1/day). |
+| C3 | worktrees | 25d | 32 | 2 | 32/150 clicks. 2 conv = 6.25% CR but sample too small. |
 
 ## What Converts — Headline Patterns
 
@@ -63,15 +65,15 @@ Generated from experiments.jsonl. Last updated: 2026-04-27 (Cycle 8).
 - **conductor** — 12.5% CR (1 conv / 8 clicks)
 - **worktrees** — 8.7% CR (winner from C3 swap)
 
-### Tier 2: Monitor
-- **claude_code** — Rollback deployed C5, 43 clicks 0 conv so far
-- **orchestration** — CTR up, low volume, 0 conv in 18 clicks
-- **sdd** — CTR up 68% but 0 conv in 68 clicks. Rollback proposed.
+### Tier 2: Monitor (waiting for 150-click maturity)
+- **claude_code** — Rollback deployed C5, 89 clicks 0 conv (need 61 more clicks to score)
+- **sdd** — Rollback deployed C8, 27 clicks 0 conv (need 123 more clicks to score)
+- **orchestration** — C3 swap, 27 clicks 0 conv, ~1 click/day (will take months to reach 150)
 
-### Tier 3: Never converts, recommend pause
-- **ralph** — 0% CR, 115 clicks, $1,094/mo. 3 ads tried.
-- **gastown_ai** — 0% CR, 31 clicks, $517/mo. 3 ads tried.
-- **coding_agent** — 0% CR, 3 consecutive ad failures. DKI unrestorable.
+### Tier 3: Paused (never converted)
+- **ralph** — Paused C8. 0% CR, 115 clicks, $1,094/mo.
+- **gastown_ai** — Paused C8. 0% CR, 31 clicks, $517/mo.
+- **coding_agent** — Paused C8. 0% CR, 3 consecutive failures.
 
 ## Rules (requires ≥3 data points)
 
@@ -101,6 +103,7 @@ Generated from experiments.jsonl. Last updated: 2026-04-27 (Cycle 8).
 | 6 | Apr 20 | 0.93% | worktrees 2nd conv |
 | 7 | Apr 23 | 1.10% | Window shift |
 | 8 | Apr 27 | 1.19% | Stabilizing |
+| 9 | May 4 | 0.83% | OBSERVE cycle. Drop likely from window shift (losing early high-CR days). |
 
 ## Meta-Learnings
 
@@ -109,4 +112,4 @@ Generated from experiments.jsonl. Last updated: 2026-04-27 (Cycle 8).
 3. **3 failed ads = audience/LP problem.** Stop iterating copy.
 4. **CTR ≠ CR.** sdd proves great CTR can mask zero conversions.
 5. **~$1,836/mo addressable waste** in ralph + gastown_ai + coding_agent (all 0 conv ever).
-6. **Account CR: 0.57% → 1.19% (+109%).** ~40% agent actions, ~60% variance + window shift.
+6. **Account CR: 0.57% → 1.19% → 0.83%.** The drop from C8→C9 illustrates why the 150-click gate matters — CR is volatile with small samples. Window shift moved high-CR days out of the 30-day range.
