@@ -1,6 +1,6 @@
 # Learnings
 
-Generated from experiments.jsonl. Last updated: 2026-05-04 (Cycle 9).
+Generated from experiments.jsonl. Last updated: 2026-05-07 (Cycle 10).
 
 ## Confirmed Winners ✅
 
@@ -29,10 +29,10 @@ Generated from experiments.jsonl. Last updated: 2026-05-04 (Cycle 9).
 
 | Experiment | Ad Group | Age | Clicks | Conv | Status |
 |---|---|---|---|---|---|
-| C5 | claude_code rollback | 18d | 89 | 0 | 89/150 clicks. 0 conv concerning but below scoring threshold. |
-| C8 | sdd rollback | 7d | 27 | 0 | 27/150 clicks. Too early. |
-| C3 | orchestration | 25d | 27 | 0 | 27/150 clicks. Very slow volume (~1/day). |
-| C3 | worktrees | 25d | 32 | 2 | 32/150 clicks. 2 conv = 6.25% CR but sample too small. |
+| C5 | claude_code rollback | 21d | 134 | 0 | 134/150 clicks. **0 conv in 134 clicks is alarming.** Original had 1.56% CR. Scoreable next cycle. |
+| C8 | sdd rollback | 10d | 45 | 1 | 45/150 clicks. 1 conv = 2.22% CR (better than original 0.25%). |
+| C3 | orchestration | 28d | 34 | 0 | 34/150 clicks. ~1 click/day. Will take months. |
+| C3 | worktrees | 28d | 38 | 2 | 38/150 clicks. 2 conv = 5.26% CR. Consistent winner signal. |
 
 ## What Converts — Headline Patterns
 
@@ -66,8 +66,8 @@ Generated from experiments.jsonl. Last updated: 2026-05-04 (Cycle 9).
 - **worktrees** — 8.7% CR (winner from C3 swap)
 
 ### Tier 2: Monitor (waiting for 150-click maturity)
-- **claude_code** — Rollback deployed C5, 89 clicks 0 conv (need 61 more clicks to score)
-- **sdd** — Rollback deployed C8, 27 clicks 0 conv (need 123 more clicks to score)
+- **claude_code** — Rollback deployed C5, 134 clicks 0 conv (need 16 more clicks to score — ⚠️ likely loser)
+- **sdd** — Rollback deployed C8, 45 clicks 1 conv = 2.22% CR (need 105 more clicks to score)
 - **orchestration** — C3 swap, 27 clicks 0 conv, ~1 click/day (will take months to reach 150)
 
 ### Tier 3: Paused (never converted)
@@ -103,7 +103,8 @@ Generated from experiments.jsonl. Last updated: 2026-05-04 (Cycle 9).
 | 6 | Apr 20 | 0.93% | worktrees 2nd conv |
 | 7 | Apr 23 | 1.10% | Window shift |
 | 8 | Apr 27 | 1.19% | Stabilizing |
-| 9 | May 4 | 0.83% | OBSERVE cycle. Drop likely from window shift (losing early high-CR days). |
+| 9 | May 4 | 0.83% | OBSERVE cycle. Drop likely from window shift. |
+| 10 | May 7 | 0.92% | OBSERVE cycle. claude_code rollback 134 clicks 0 conv. |
 
 ## Meta-Learnings
 
