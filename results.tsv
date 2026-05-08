@@ -1,12 +1,1 @@
 cycle	date	conv_rate	cost_per_conv	assets_deployed	winners	losers	status	description
-1	2026-04-07	0.004916	1035.90	0	0	0	baseline	initial snapshot
-2	2026-04-08	0.005622	907.09	6	0	0	keep	replaced 2 headlines in claude_code, 2 in ralph, 2 in sdd
-3	2026-04-09	0.005716	878.70	2	0	0	keep	replaced 1 headline in orchestration, 1 in worktrees; ade skipped (DKI constraint)
-4	2026-04-13	0.005716	878.70	3	0	0	keep	2 negative keywords (what is, process automation); 1 full RSA swap in coding_agent; worktrees early winner (14.3% CR)
-5	2026-04-16	0.007400	11079.00	3	1	0	keep	Rollback claude_code to original; neg "claude code plans" EXACT; deployed 4 days late
-6	2026-04-20	0.009317	9995.00	1	0	2	keep	coding_agent rollback proposed; ralph+gastown_ai pause flagged; worktrees winner confirmed; account CR 0.57%→0.93%
-7	2026-04-23	0.011022	9660.00	2	0	2	keep	Account CR 0.57%→1.10% (+93%); worktrees confirmed winner; coding_agent C4 confirmed loser; ralph+gastown_ai re-flagged ($1,757/mo waste)
-8	2026-04-27	0.011940	9090.00	1	0	3	keep	sdd C3 confirmed loser (68 clicks 0 conv); coding_agent 3rd failure; ralph+gastown flagged 3rd time ($1,836/mo waste); account CR 1.19%
-9	2026-05-04	0.008333	9563.00	0	0	0	observe	OBSERVE mode. No experiment ≥150 clicks (claude_code 89, sdd 27, orchestration 27, worktrees 32). No eligible ad group for new experiments (all have running experiments or <100 clicks). Account: 600 clicks, 5 conv, $5,754 spend.
-10	2026-05-07	0.009245	6764.00	0	0	0	observe	OBSERVE mode. claude_code rollback at 134/150 clicks (0 conv — concerning). sdd rollback 45 clicks 1 conv. worktrees 38 clicks 2 conv. All groups with ≥100 clicks have running experiments. Account: 649 clicks, 6 conv, $6,220 spend.
-11	2026-05-08	0.006461	6013.58	0	0	0	observe	OBSERVE mode (dual gate). claude_code rollback 147/150 clicks 0 conv (scorable next cycle). sdd rollback 47 clicks 1 conv (11d live, need 14d). worktrees 39 clicks 2 conv. orchestration 35 clicks 0 conv. Account: 621 clicks, 4 conv, $6,014 spend.

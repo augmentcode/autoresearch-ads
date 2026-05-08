@@ -1,162 +1,119 @@
-# Cosmos (formerly Poseidon) — Product Positioning
-**Last updated**: 2026-05-01
+# Augment Cosmos — Product Messaging (Source of Truth)
+**Last updated**: 2026-05-08
 
-## Category
-**Operating System for Agentic Software Development**
-
----
-
-## Positioning Statement
-**Cosmos is the operating system for agentic software development — a platform where agents don't just assist work, they run it.**
-
-It provides the environment, runtime, memory, and control plane for agents to operate across the entire software development lifecycle — and to improve the system itself over time.
+A single source of truth for how we talk about Augment Cosmos. Use this doc as context when drafting any external content (web, email, social, sales collateral, event copy, ads). If a claim isn't supported here, it shouldn't be in the copy.
 
 ---
 
-## The Shift
-We've crossed the first threshold: engineers use agents daily, code generation is fast and cheap. But:
-- The bottleneck has shifted to **context, verification, and coordination**
-- Individual adoption has not translated into **organizational transformation**
+## Summary
 
-The future is not one agent or one workflow. It is an **environment where agents, humans, tools, and memory coexist and coordinate.**
+**Product:** Augment Cosmos.
+**Category:** Unified Cloud Agents Platform.
+**Higher-level frame:** The Operating System for Agentic Software Development.
+**One-line positioning:** Augment Cosmos is the unified cloud agents platform with shared context and memory that compounds across the team and the software development lifecycle.
 
----
+**The narrative:** Coding agents have made individual developers more productive, but those gains haven't reached the organization. Engineers are drowning in agent-generated PRs, quality is dropping, and nothing is compounding. What's missing is a system — one where humans, agents, code, tools, policy, and memory are coordinated at the org level. Cosmos is that system, productized.
 
-## The Problem — Today's Agent Tools Break at the System Level
+**Four key values:**
+1. Unified across the software development lifecycle — one platform, no integration work per use case
+2. Self-improving agents — patterns and corrections compound across the team
+3. Enterprise scale — reliable across large codebases and high concurrent volume
+4. Enterprise control — observable, auditable, governed by default
 
-### 1. Fragmented workflows
-Every engineer builds their own setup. Nothing compounds.
-
-### 2. No shared memory
-Agents don't retain knowledge across runs, teams, or systems.
-
-### 3. No execution substrate
-Agents lack persistent environments, real integrations, long-running behavior.
-
-### 4. Humans are still the glue
-Humans orchestrate workflows, debug failures, connect systems.
+**Primary buyer:** CTO / VP Engineering at enterprise companies (ideally cloud-native).
+**Key competitive frames:** Build vs buy, multi-model vs single-lab lock-in, true unified platform vs stitched cloud services.
 
 ---
 
-## The Insight
-> The real shift isn't better agents. It's **systems where agents can operate end-to-end.**
+## 1. What we believe
 
-The winning abstraction is not "AI coding assistant" or "agent framework." It is: **An operating system for agents.**
+Coding agents promised massive productivity gains. At the individual level, that promise has been real — engineers are shipping more code than ever, often wiring up their own agent workflows to ship even more.
 
----
+But the organization doesn't feel 10x more productive. Individual productivity is not organizational productivity. Agents have made individuals faster in silos, with no shared patterns and no shared memory. The result is more PRs, more tickets, more 2am alerts, but nothing compounding.
 
-## What Cosmos Does
-
-### 1. Runs Agents Across the Entire SDLC
-Triage → Spec → Implementation → Review → Testing → Deployment → Monitoring
-
-### 2. Provides a Persistent Agent Runtime
-Agents are long-lived, stateful, event-driven. They **own workflows to completion**.
-
-### 3. Gives Agents Real Environments
-Cloud VMs, tools, credentials, APIs, access to systems (GitHub, CI, Slack, etc.)
-
-### 4. Creates Shared Memory + Filesystem
-Agents share context across runs. Patterns accumulate. Corrections compound. Workflows improve over time without being rewritten.
-
-### 5. Enables Agentic System Building
-Describe workflows in natural language:
-> "When feedback arrives, triage it, create a ticket, implement, and send a PR."
-
-Cosmos creates the agents, wires the workflow, runs it continuously.
+What's missing is a system — one where humans, agents, code, tools, policy, and memory are coordinated at the org level, where every new agent inherits the context the team has already built, and where knowledge compounds instead of resetting with every session. The teams modernizing fastest — Stripe, Ramp, Uber — are building this system themselves. Augment Cosmos is that system, productized.
 
 ---
 
-## Core Design Principle
-> **Agents should be able to operate and improve the system they run in.**
+## 2. The category
 
-Agents, workflows, tools, and integrations are exposed as **files**. Agents can read, modify, and create new ones. This enables: **Agents building systems for agents.**
-
----
-
-## What This Unlocks
-
-| Capability | Description |
-|-----------|-------------|
-| **Agentic SDLC** | Agents do the work across the lifecycle; humans step in at key decision points |
-| **Agent Teams** | Specialized, long-lived agents with shared memory and coordination |
-| **Autonomous Workflows** | Event-driven: "On every merged PR, if docs need updating, create a docs PR" |
-| **Self-Improving Systems** | Workflows evolve over time; agents refine behavior; best practices spread |
+**Category name:** Unified Cloud Agents Platform
+**Category definition:** A unified platform for running agents in the cloud, with shared context and memory that compounds across the team and the software development lifecycle.
+**The higher-level frame: The Operating System for Agentic Software Development.** Cosmos is more than a category descriptor. Agents share context and memory, sessions are observable, learnings carry forward across the team. That coordination at the org level is what makes it an operating system, not just a platform.
 
 ---
 
-## Mental Model
-**Small teams of humans. Large fleets of agents. Cosmos in between.**
-- Humans set intent and review key decisions
-- Agents execute continuously
-- Cosmos coordinates everything
+## 3. Product positioning
+
+**Single sentence (CTO / VP Engineering):**
+Augment Cosmos is the unified cloud agents platform with shared context and memory that compounds across the team and the software development lifecycle.
+
+**Single paragraph (CTO / VP Engineering):**
+Augment Cosmos is the unified cloud agents platform for engineering organizations that have rolled out individual coding agents and are now feeling the breakdown. Engineers are buried in agent-generated PRs, quality is dropping, and the productivity gains haven't reached the organization. Cosmos coordinates that energy into one system. Agents share context and memory across the team, with patterns and corrections compounding session over session. Built on a shared context engine, tenant-wide memory, and an event-driven runtime, Cosmos is what teams like Stripe, Ramp, and Uber are building for themselves — productized. Humans steer; agents do the doing; the system gets better over time.
+
+**Single sentence (Staff engineer / platform lead):**
+Augment Cosmos is a unified cloud agents platform with the composable building blocks to run agents in production: governed, observable, and reproducible.
+
+**Single paragraph (Staff engineer / platform lead):**
+Augment Cosmos gives platform engineers the building blocks to operationalize agents across the software development lifecycle. Environments define where agents run and what they can touch. Experts define how agents behave, what tools they use, and what events they subscribe to. Sessions turn one-off prompts into auditable, replayable workflows. Each can stay private to one engineer or get promoted into a shared capability the whole org draws on. Cosmos runs in your own environment or in our cloud sandboxes; supports BYOK across major model providers; and is observable and auditable by default.
 
 ---
 
-## Differentiation
+## 4. The four key values
 
-| Dimension | Others | Cosmos |
-|-----------|--------|--------|
-| **Scope** | Add agents to workflows | Replace workflows with agent-operated systems |
-| **State** | Task-based, stateless | Long-lived, memory-backed agents |
-| **Scale** | Single agents | Agent fleets that share context, delegate, learn together |
-| **Control** | Human-configured | Agent-operated: agents build workflows, manage agents, improve the system |
+### 4.1 Unified across the software development lifecycle
+**Promise — Unified:** One platform where agents work across every tool, surface, and stage of software development, with no integration work to stitch it together.
+**Customer pain:** Building agentic workflows today means stitching point solutions together. CodeRabbit for review, Cursor for coding, separate tools for triage, testing, monitoring. Each tool has its own integrations, its own auth, its own data model, its own context. Knowledge is split across tools.
+**Cosmos promise:** Cosmos is one platform that connects to the tools and events your team already works from, so agents can be deployed anywhere across the software development lifecycle without custom plumbing for each new use case.
 
----
+### 4.2 Compounding capability
+**Promise — Self-improving agents:** Every agent built, every pattern learned, and every correction made compounds across the team.
+**Customer pain:** Every coding agent on the market today starts from zero on every task. There's no shared context, no shared memory, no institutional knowledge.
+**Cosmos promise:** Cosmos is built on a shared context engine and a shared virtual filesystem with tenant-wide and private memory. Patterns, conventions, and corrections accumulate.
 
-## Why Now
-- Agent capabilities rapidly improving
-- Code generation is commoditized
-- Bottleneck is now **system-level coordination**
+### 4.3 Enterprise scale
+**Promise — Reliability:** Agents that run reliably across large codebases and high volumes of concurrent work.
+**Customer pain:** Most agentic tools demo well on small codebases and isolated tasks, then fall over in production.
+**Cosmos promise:** Cosmos is built to run reliably at enterprise scale. Agents understand large, complex codebases from the first run. Sessions are durable across long-running and parallel work.
 
-Winners = teams that move from **using agents → running agent systems**
-
----
-
-## Target Users
-- AI-native engineering teams
-- Platform / infrastructure teams
-- Organizations adopting agentic SDLC
+### 4.4 Enterprise control
+**Promise — Governance:** Run agents at scale with the observability, auditability, and human-in-the-loop controls enterprises require.
+**Customer pain:** Most agentic tools weren't built for the controls a CTO needs to run them at scale.
+**Cosmos promise:** Cosmos is governed by default. Every action is observable, every run is auditable, and human-in-the-loop is a feature, not an add-on.
 
 ---
 
-## Taglines
-- The operating system for agentic software development
-- Where agents run the work
-- From agents to agent systems
-- Turn workflows into autonomous systems
+## 5. Who this is for
 
-## One-Liner
-**Cosmos is the operating system where agents run, coordinate, and improve software development — turning fragmented workflows into autonomous, evolving systems.**
+**Primary ICP:** CTO / VP of Engineering at enterprise companies (ideally cloud-native). Convinced agents are the next platform shift. Already seen the limits of IDE-bound coding tools. Decision maker and often champion.
+**Secondary ICP:** Staff engineer / platform lead. The senior IC who evaluates the primitives and decides whether the platform holds up under real production conditions.
 
 ---
 
-## Ad-Relevant Claims (Safe to Use)
+## 6. Pain points we're testing
 
-### ✅ Safe Claims
-- Agents run across the full SDLC
-- Persistent, stateful agent runtime
-- Shared memory across agent runs
-- Event-driven autonomous workflows
-- Agents can build and improve other agent workflows
-- Real cloud environments with tools, credentials, APIs
-- Works with GitHub, CI, Slack, Linear
-- Describe workflows in natural language
-- Small teams of humans, large fleets of agents
+1. **Agent chaos.** Engineers overwhelmed by agent-generated PRs. Quality dropping. More incidents.
+2. **Cost of point solutions.** Stacking individual products with no compounding return.
+3. **Fragmentation.** Too many point solutions, none talking to each other. No shared memory or context.
 
-### ❌ Off-Limits
-- Do NOT claim specific user counts unless provided
-- Do NOT claim speed benchmarks unless provided
-- Do NOT use "AI-powered" — say what it actually does
-- Do NOT position as an IDE or coding assistant
-- Do NOT compare directly to Cursor, Copilot, etc. (different category now)
-- Do NOT use "ADE" or "AIDE"
+---
 
-### Competitor Context (New Category)
-| vs | Cosmos's difference |
-|----|---------------------|
-| Coding assistants (Cursor, Copilot) | Not a tool — an OS for agent systems |
-| Terminal agents (Claude Code, Codex CLI) | Persistent, stateful, event-driven — not session-based |
-| Agent frameworks (LangChain, CrewAI) | Full runtime + environments + memory, not just orchestration code |
-| DevOps platforms (GitHub Actions, Jenkins) | Agent-native: agents are first-class, not scripts in YAML |
-| Single-agent tools | Fleet coordination: agents share context, delegate, learn together |
+## 7. Competitive framing
+
+1. **Build vs buy.** Stripe/Ramp/Uber are building this themselves. Cosmos is that system, productized.
+2. **Big model lab offerings (Claude Managed Agents, OpenAI Codex).** With Cosmos, customers aren't locked into a single model. BYOK across providers.
+3. **Big cloud provider platforms (AWS, Google).** In reality, customers stitch together micro services. Cosmos is a true unified platform.
+
+---
+
+## 8. Language rules
+
+**Use:** Unified Cloud Agents Platform, The Operating System for Agentic Software Development, across the software development lifecycle, shared context/shared memory, humans steer agents do the doing, Environments/Experts/Sessions, context engine/tenant memory, event-driven/observable/auditable.
+
+**Avoid:** Any phrasing implying Stripe/Ramp/Uber are customers. "Agentic software development platform" (deprecated). "SDLC" as acronym. "AI transformation." "AI software engineer/droid." "Coding agent" as description of Cosmos. Replacement language generally.
+
+---
+
+## 9. Customer proof
+
+Cosmos is in design partner stage. No published case studies or named customer outcomes yet.

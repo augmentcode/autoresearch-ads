@@ -1,4 +1,4 @@
-campaign: intent-search-ads
+campaign: cosmos-search-ads
 platform: google_search
 
 data_source:
@@ -10,14 +10,11 @@ data_source:
 
 # Campaign names to filter MCP queries
 campaigns:
-  - gg_emea_dg_search_competitor_intent
-  - gg_emea_dg_search_competitor_intent_claude
-  - gg_emea_dg_search_competitor_intent_gpt54
-  - gg_emea_dg_search_generic_intent
-  - gg_nam_dg_search_competitor_intent
-  - gg_nam_dg_search_competitor_intent_claude
-  - gg_nam_dg_search_competitor_intent_gpt54
-  - gg_nam_dg_search_generic_intent
+  - gg_nam_dg_search_brand_cosmos
+  - gg_nam_dg_search_competitor_cosmos
+  - gg_nam_dg_search_generic_codereview_cosmos
+  - gg_nam_dg_search_generic_cosmos
+  - gg_nam_dg_search_generic_platform_cosmos
 
 constraints:
   headline_max_chars: 30
@@ -32,43 +29,12 @@ thresholds:
   loser: -0.20       # >= 20% decline in conversion_rate
   min_impressions: 100
 
-ad_groups:
-  claude_code:
-    campaign_type: competitor
-    intent: navigational
-  sdd:
-    campaign_type: generic
-    intent: methodology
-  ralph:
-    campaign_type: competitor
-    intent: competitor
-  gastown_ai:
-    campaign_type: competitor
-    intent: competitor
-  orchestration:
-    campaign_type: generic
-    intent: capability
-  coding_agent:
-    campaign_type: generic
-    intent: capability
-  worktrees:
-    campaign_type: generic
-    intent: technical
-  conductor:
-    campaign_type: competitor
-    intent: competitor
-  ade:
-    campaign_type: generic
-    intent: category
-  developer_tools:
-    campaign_type: generic
-    intent: capability
-  intent:
-    campaign_type: generic
-    intent: methodology
-  app_builder:
-    campaign_type: generic
-    intent: capability
+# Ad groups will be auto-discovered from MCP data on first run.
+# Uncomment and populate after the first data pull.
+# ad_groups:
+#   example_group:
+#     campaign_type: brand
+#     intent: navigational
 
 # MCP query fields — used by program.md to build queries
 mcp_fields:
