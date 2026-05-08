@@ -1,6 +1,6 @@
 # Learnings
 
-Generated from experiments.jsonl. Last updated: 2026-05-07 (Cycle 10).
+Generated from experiments.jsonl. Last updated: 2026-05-08 (Cycle 11).
 
 ## Confirmed Winners ✅
 
@@ -29,10 +29,10 @@ Generated from experiments.jsonl. Last updated: 2026-05-07 (Cycle 10).
 
 | Experiment | Ad Group | Age | Clicks | Conv | Status |
 |---|---|---|---|---|---|
-| C5 | claude_code rollback | 21d | 134 | 0 | 134/150 clicks. **0 conv in 134 clicks is alarming.** Original had 1.56% CR. Scoreable next cycle. |
-| C8 | sdd rollback | 10d | 45 | 1 | 45/150 clicks. 1 conv = 2.22% CR (better than original 0.25%). |
-| C3 | orchestration | 28d | 34 | 0 | 34/150 clicks. ~1 click/day. Will take months. |
-| C3 | worktrees | 28d | 38 | 2 | 38/150 clicks. 2 conv = 5.26% CR. Consistent winner signal. |
+| C5 | claude_code rollback | 22d | 147 | 0 | 147/150 clicks. **0 conv in 147 clicks — P(0|CR=1.56%)≈10%.** Scoreable next cycle. Almost certainly a loser. |
+| C8 | sdd rollback | 11d | 47 | 1 | 47/150 clicks. 1 conv = 2.13% CR. 11/14 days live. |
+| C3 | orchestration | 29d | 35 | 0 | 35/150 clicks. ~1 click/day. Will take months. |
+| C3 | worktrees | 29d | 39 | 2 | 39/150 clicks. 2 conv = 5.13% CR. Consistent winner signal. |
 
 ## What Converts — Headline Patterns
 
@@ -66,9 +66,9 @@ Generated from experiments.jsonl. Last updated: 2026-05-07 (Cycle 10).
 - **worktrees** — 8.7% CR (winner from C3 swap)
 
 ### Tier 2: Monitor (waiting for 150-click maturity)
-- **claude_code** — Rollback deployed C5, 134 clicks 0 conv (need 16 more clicks to score — ⚠️ likely loser)
-- **sdd** — Rollback deployed C8, 45 clicks 1 conv = 2.22% CR (need 105 more clicks to score)
-- **orchestration** — C3 swap, 27 clicks 0 conv, ~1 click/day (will take months to reach 150)
+- **claude_code** — Rollback deployed C5, 147 clicks 0 conv (3 clicks from scoring — ⚠️ almost certainly loser)
+- **sdd** — Rollback deployed C8, 47 clicks 1 conv = 2.13% CR (need 103 more clicks + 3 days to score)
+- **orchestration** — C3 swap, 35 clicks 0 conv, ~1 click/day (will take months to reach 150)
 
 ### Tier 3: Paused (never converted)
 - **ralph** — Paused C8. 0% CR, 115 clicks, $1,094/mo.
@@ -105,6 +105,7 @@ Generated from experiments.jsonl. Last updated: 2026-05-07 (Cycle 10).
 | 8 | Apr 27 | 1.19% | Stabilizing |
 | 9 | May 4 | 0.83% | OBSERVE cycle. Drop likely from window shift. |
 | 10 | May 7 | 0.92% | OBSERVE cycle. claude_code rollback 134 clicks 0 conv. |
+| 11 | May 8 | 0.65% | OBSERVE (dual gate). claude_code 147/150 clicks 0 conv. |
 
 ## Meta-Learnings
 
@@ -113,4 +114,6 @@ Generated from experiments.jsonl. Last updated: 2026-05-07 (Cycle 10).
 3. **3 failed ads = audience/LP problem.** Stop iterating copy.
 4. **CTR ≠ CR.** sdd proves great CTR can mask zero conversions.
 5. **~$1,836/mo addressable waste** in ralph + gastown_ai + coding_agent (all 0 conv ever).
-6. **Account CR: 0.57% → 1.19% → 0.83%.** The drop from C8→C9 illustrates why the 150-click gate matters — CR is volatile with small samples. Window shift moved high-CR days out of the 30-day range.
+6. **Account CR: 0.57% → 1.19% → 0.83% → 0.65%.** Continued decline suggests the early gains were noise, not signal. The 30-day window is now dominated by post-swap performance which is mostly flat.
+7. **Dual gate (150 clicks + 14 days) prevents premature scoring.** C11 is the first cycle where both gates apply. claude_code at 147 clicks would have been scored under clicks-only, but the dual gate correctly defers until next cycle. This prevents the exact mistake that caused the C2→C5 rollback cascade.
+8. **Snapshot pipeline now load-bearing.** C11 is the first cycle using snapshot.json as sole data source. Auto-archive confirmed working — snapshot-2026-05-08.json created automatically.
