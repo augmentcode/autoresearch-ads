@@ -116,23 +116,32 @@ Run the compression script:
 cd ~/autoresearch-ads && python3 snapshot.py
 ```
 
-This reads the 3 raw files and produces `data/snapshot.json`. Archive the snapshot:
+This reads the 3 raw files, produces `data/snapshot.json`, and
+automatically archives a copy to `memory/snapshots/snapshot-{date}.json`.
 
-```bash
-cp data/snapshot.json memory/snapshots/snapshot-$(date +%Y-%m-%d).json
-```
-
-Read `data/snapshot.json`. This is your compressed view of the account — use it for all analysis and decisions.
+Read `data/snapshot.json`. This is your **sole data source** for all
+analysis and decisions from this point forward. Do NOT use raw MCP
+response data held in your context window — it may be incomplete,
+uncompressed, or formatted differently than what `snapshot.py` produces.
+If `snapshot.json` is missing or empty after running the script,
+something went wrong in Steps 1–2; debug before proceeding.
 
 ### Step 3: Score Previous Experiments
 
-**Data maturity gate.** Do NOT score an experiment until its ad has
-accumulated **≥ 150 clicks**. Below that threshold, conversion rate
-estimates are too noisy to distinguish signal from variance. When an
-experiment has < 150 clicks, leave its status as `"launched"` and print:
+**Data maturity gate.** Do NOT score an experiment until **both**
+conditions are met:
+
+1. The ad has accumulated **≥ 150 clicks**.
+2. The ad has been live for **≥ 14 days** (compare `timestamp` in the
+   experiment entry to today's date).
+
+The click gate filters noise; the time gate ensures conversion
+attribution has completed (Google Ads conversions can take 7–14 days
+to attribute). When either condition is unmet, leave status as
+`"launched"` and print:
 
 ```
-⏳ {ad_group} ({experiment_id}): {clicks} clicks — need ≥ 150 to score. Skipping.
+⏳ {ad_group} ({experiment_id}): {clicks} clicks, {days}d live — need ≥ 150 clicks AND ≥ 14d. Skipping.
 ```
 
 Read `memory/experiments.jsonl`. Find entries with `"status": "launched"`.
@@ -545,56 +554,33 @@ Call this the *base ad*. `resource_name` is `old_ad_id`; `headlines` /
 
 **6. Deploy — `negative_keyword` path.**
 
-   ⚠️ **Pending MCP tool.** The `google-ads-write` MCP does not yet expose
-   an `add_negative_keyword` tool. Until it does, follow this path:
+   The `google-ads-write` MCP exposes `add_negative_keywords`. For each
+   approved `negative_keyword` proposal:
 
-   a. For each approved `negative_keyword` proposal, **log it with
-      `"status": "pending_tool"` and `"failure_reason": "add_negative_keyword MCP tool not yet available"`** instead of deploying.
-   b. At the end of Step 8, print a consolidated block for manual action:
-
-   ```
-   ── NEGATIVE KEYWORDS — MANUAL ENTRY REQUIRED ──────────────────
-   The following negatives were approved but cannot be deployed
-   automatically. Add them in Google Ads UI → Keywords → Negatives.
-
-   claude_code (ad group level, exact match):
-     [free claude code download]
-     [claude code free]
-
-   ralph (campaign level, phrase match):
-     "free"
-   ────────────────────────────────────────────────────────────────
-   ```
-
-   c. Once an `add_negative_keyword` MCP tool becomes available, update
-      this step to call it with `validate_only: true` then `validate_only: false`,
-      record the returned `criterion_resource_name`, and set `status: "launched"`.
+   a. Call `add_negative_keywords` with `validate_only: true` first.
+   b. Call `add_negative_keywords` with `validate_only: false`.
+      - `customer_id` from `config.yaml`
+      - `campaign_id`: the campaign resource name for the ad group
+      - `keywords`: array of `{"text": "<term>", "match_type": "<EXACT|PHRASE>"}`
+   c. Record the returned resource name as `criterion_resource_name`
+      and set `status: "launched"`.
+   d. If the call fails, log with `"status": "deployment_failed"` and
+      `"failure_reason": "<error>"`.
 
 **7. Deploy — `keyword_expansion` path.**
 
-   ⚠️ **Pending MCP tool.** The `google-ads-write` MCP does not yet expose
-   an `add_keyword` tool. Until it does, follow this path:
+   The `google-ads-write` MCP exposes `add_keywords`. For each approved
+   `keyword_expansion` proposal:
 
-   a. For each approved `keyword_expansion` proposal, **log it with
-      `"status": "pending_tool"` and `"failure_reason": "add_keyword MCP tool not yet available"`**.
-   b. At the end of Step 8, append the keyword expansions to the manual entry block:
-
-   ```
-   ── KEYWORD EXPANSIONS — MANUAL ENTRY REQUIRED ──────────────────
-   The following keywords were approved but cannot be deployed
-   automatically. Add them in Google Ads UI → Keywords → + New keyword.
-
-   claude_code (phrase match):
-     "claude code parallel agents"
-
-   sdd (exact match):
-     [spec driven development tool]
-   ────────────────────────────────────────────────────────────────
-   ```
-
-   c. Once an `add_keyword` MCP tool becomes available, update this step
-      to call it with `validate_only: true` then `validate_only: false`,
-      record the returned `criterion_resource_name`, and set `status: "launched"`.
+   a. Call `add_keywords` with `validate_only: true` first.
+   b. Call `add_keywords` with `validate_only: false`.
+      - `customer_id` from `config.yaml`
+      - `ad_group_id`: the ad group resource name
+      - `keywords`: array of `{"text": "<term>", "match_type": "<EXACT|PHRASE>"}`
+   c. Record the returned resource name as `criterion_resource_name`
+      and set `status: "launched"`.
+   d. If the call fails, log with `"status": "deployment_failed"` and
+      `"failure_reason": "<error>"`.
 
 **8. Error handling.**
    Always run `validate_only: true` first on every mutate call. If any
@@ -692,8 +678,8 @@ Field reference:
   a successful deploy. Not present on `negative_keyword` entries.
 - `new_ad_id` — resource name of the newly created ad. Never null on a
   successful deploy. Not present on `negative_keyword` entries.
-- `criterion_resource_name` — resource name returned by `add_negative_keyword`
-  or `add_keyword` on a successful deploy. Null until the respective MCP tool is available.
+- `criterion_resource_name` — resource name returned by `add_negative_keywords`
+  or `add_keywords` on a successful deploy. Null if the deploy failed.
 - `experiment_id` — resource name of the `experiment` resource for
   ad_variation entries; always null for direct_swap, negative_keyword, and keyword_expansion.
 
@@ -708,10 +694,21 @@ by Step 3.
 cycle	date	conv_rate	cost_per_conv	assets_deployed	winners	losers	status	description
 ```
 
-3. **learnings.md** — Regenerate from experiments.jsonl. List:
+3. **learnings.md** — Regenerate from experiments.jsonl. Include two sections:
+
+   **Copy learnings** (what works / doesn't in ad creative):
    - Patterns that have won (with data)
    - Patterns that have lost (with data)
    - Rules derived from >= 3 data points
+
+   **Meta-learnings** (what works / doesn't in the agent's own process):
+   - Process mistakes and corrections (e.g. "scoring at <150 clicks led to
+     2 premature rollbacks in C5 and C8")
+   - Volume observations (e.g. "3 consecutive copy attempts on coding_agent
+     (9 clicks/mo) all failed — volume was the issue, not copy")
+   - When to give up on copy and flag an ad group as audience/LP problem
+   - Patterns in experiment timing, approval delays, or data gaps that
+     affected outcomes
 
 **Step 8 completion gate — do NOT proceed to Step 9 until all three are verified:**
 - [ ] `experiments.jsonl` — new entries appended for this cycle
@@ -747,8 +744,9 @@ Stop. The next cycle runs tomorrow when conversion data has accumulated.
 - **Secondary metric**: `cost_per_conversion` = cost / conversions
 - **Winner threshold**: >= 20% improvement in conversion_rate over original
 - **Loser threshold**: >= 20% decline in conversion_rate vs original
-- **Minimum clicks to score**: **150 clicks** (data maturity gate). Do not
-  score any experiment below this threshold — leave it as `"launched"`.
+- **Minimum to score**: **≥ 150 clicks AND ≥ 14 days live** (data maturity
+  gate). Both conditions must be met. Do not score any experiment below
+  either threshold — leave it as `"launched"`.
 - **Confidence**: `high` if clicks >= 500, `medium` 150-499, `low` < 150 (not scoreable)
 
 ## results.tsv Format

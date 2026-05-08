@@ -8,6 +8,7 @@ Usage: python snapshot.py
 
 import json
 import os
+import shutil
 import statistics
 import sys
 from datetime import date, datetime, timedelta, timezone
@@ -590,6 +591,16 @@ def main():
     os.makedirs(DATA_DIR, exist_ok=True)
     with open(OUTPUT, "w") as f:
         json.dump(snapshot, f, indent=2)
+
+    # Auto-archive: copy snapshot to memory/snapshots/snapshot-{date}.json
+    # so historical comparisons are always available regardless of whether
+    # the agent remembers to run the cp command.
+    snapshots_dir = os.path.join(ROOT, "memory", "snapshots")
+    os.makedirs(snapshots_dir, exist_ok=True)
+    archive_name = f"snapshot-{date.today().isoformat()}.json"
+    archive_path = os.path.join(snapshots_dir, archive_name)
+    shutil.copy2(OUTPUT, archive_path)
+    print(f"Archived: {archive_path}")
 
     # Print summary using full (untrimmed) tier counts so the human
     # gets an honest view of the underlying classification.
