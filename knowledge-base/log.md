@@ -52,6 +52,14 @@ Append-only. Each entry records what changed and why.
 - Measurement framework with kill/scale thresholds
 - All recommendations grounded in our 8-cycle experiment heuristics (Rules #1, #7, #8)
 
+## [2026-06-03] refresh | Product Positioning — Cosmos
+- Source: Updated messaging house provided by Molisha
+- Updated: `03-product-positioning.md` — full rewrite to current source-of-truth
+- Key change: Higher-level frame swapped from "The Operating System for Agentic Software Development" to "Agentic SDLC" — owned the way Atlassian owns "Agile", thought-leadership-only, never as product descriptor. Product category remains "Unified Cloud Agents Platform".
+- New explicit guardrails added to §8: do not name Stripe/Ramp/Uber as customers; do not use "AI transformation," "AI software engineer/droid/coding agent" framing; "SDLC" stays out of broad customer-facing copy (Agentic SDLC excepted as category theme).
+- Expanded §4 with full Customer pain + Product proof bullets for each of the four key values.
+- Added §5 Audience switching rules (CTO ↔ Staff Eng vocabulary swaps).
+
 ## [2026-05-01] init | Schema Established
 - Created: `KNOWLEDGE.md` — full schema with directory structure, three-layer architecture, operations (ingest/query/lint), conventions, agent startup sequence
 - Defined: page format, naming conventions, data citation rules, cross-referencing requirements

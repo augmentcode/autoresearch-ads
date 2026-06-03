@@ -18,7 +18,7 @@
 | **Audience Strategy (Cosmos)** | [audience-strategy-cosmos.md](audience-strategy-cosmos.md) | Full audience targeting strategy — 6 custom segments, in-market/affinity layers, suppression, negatives, competitive positioning, rollout plan, budget allocation, measurement framework | 2026-05-01 |
 | **Agent Architecture v2** | [agent-architecture-proposal.md](agent-architecture-proposal.md) | 4-layer composable system proposal: Intelligence → Strategy → Execution → Measurement. Includes MCP tool map, implementation roadmap, review gates, guardrails | 2026-05-01 |
 | Google Ads Architecture | [02-google-ads-architecture.md](02-google-ads-architecture.md) | 9-layer system flow from Figma board — account → campaigns → ad groups → targeting → creative → auction → delivery → conversion → feedback loop. Maps optimization levers to agent capabilities. | 2026-05-01 |
-| Product Positioning | [03-product-positioning.md](03-product-positioning.md) | Cosmos (formerly Poseidon/Intent) positioning — OS for agentic software development. Category, claims, differentiation, target users, competitor context. | 2026-05-01 |
+| Product Positioning | [03-product-positioning.md](03-product-positioning.md) | Cosmos positioning — Unified Cloud Agents Platform; Agentic SDLC owned as higher-level theme. Category, claims, four key values with proof, ICPs, competitive framing, language do/don't. | 2026-06-03 |
 
 ## Entity Pages
 *Not yet created. Will be built as KB matures.*
