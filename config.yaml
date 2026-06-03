@@ -29,12 +29,64 @@ thresholds:
   loser: -0.20       # >= 20% decline in conversion_rate
   min_impressions: 100
 
-# Ad groups will be auto-discovered from MCP data on first run.
-# Uncomment and populate after the first data pull.
-# ad_groups:
-#   example_group:
-#     campaign_type: brand
-#     intent: navigational
+ad_groups:
+  # Brand (gg_nam_dg_search_brand_cosmos)
+  exact:
+    campaign_type: brand
+    intent: navigational
+  phrase:
+    campaign_type: brand
+    intent: navigational
+
+  # Competitor (gg_nam_dg_search_competitor_cosmos)
+  Blitzy:
+    campaign_type: competitor
+    intent: competitor
+  claude_code:
+    campaign_type: competitor
+    intent: competitor
+  copilot:
+    campaign_type: competitor
+    intent: competitor
+  cursor:
+    campaign_type: competitor
+    intent: competitor
+  devin:
+    campaign_type: competitor
+    intent: competitor
+  factory:
+    campaign_type: competitor
+    intent: competitor
+  openai_codex:
+    campaign_type: competitor
+    intent: competitor
+
+  # Generic — product theme (gg_nam_dg_search_generic_cosmos)
+  agent_platform:
+    campaign_type: generic
+    intent: category
+  agentic_dev:
+    campaign_type: generic
+    intent: category
+  background_agents:
+    campaign_type: generic
+    intent: capability
+  coding_agent:
+    campaign_type: generic
+    intent: capability
+
+  # Generic — platform (gg_nam_dg_search_generic_platform_cosmos)
+  internal_dev_platform:
+    campaign_type: generic
+    intent: category
+
+  # Generic — code review (gg_nam_dg_search_generic_codereview_cosmos)
+  code_review:
+    campaign_type: generic
+    intent: capability
+  pull_request:
+    campaign_type: generic
+    intent: capability
 
 # MCP query fields — used by program.md to build queries
 mcp_fields:

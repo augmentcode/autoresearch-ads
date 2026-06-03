@@ -345,7 +345,7 @@ Write proposals to `copy.json`. Three proposal types are valid — always includ
     {
       "type": "description",
       "ad_group": "claude_code",
-      "original": "Already have a Claude Code subscription? Use Intent complete...",
+      "original": "Already have a Claude Code subscription? Use Cosmos to complete...",
       "original_conversion_rate": 0.0,
       "new_text": "Your proposed description here",
       "hypothesis": "Why you think this converts better"
