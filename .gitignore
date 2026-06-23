@@ -1,6 +1,7 @@
 # Raw MCP data (large, ephemeral — regenerated each cycle)
 data/raw-*.json
 data/partials/
+data/pull-plan.json
 
 # Compressed snapshot (regenerated each cycle)
 data/snapshot.json

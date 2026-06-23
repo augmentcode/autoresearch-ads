@@ -40,6 +40,16 @@ Make MCP queries to get current campaign performance. Include conversion fields 
 
 **All data is pulled per-campaign to prevent MCP response truncation.** A single bulk query across all campaigns silently drops data.
 
+Generate the repeatable pull plan first:
+
+```bash
+python3 pull_data.py plan
+```
+
+Use `data/pull-plan.json` as the source of truth for MCP `search` calls. For
+each entry in `requests`, call the MCP `search` tool with `mcp.arguments`, then
+write the returned rows to the listed `partial.path` under `partial.key`.
+
 Initialize partial file directory:
 
 ```bash
@@ -95,6 +105,12 @@ Print: `  ✓ {campaign_name} done ({N} assets, {M} keywords, {P} search terms)`
 
 **END FOR**
 
+Validate that all expected partial files were written:
+
+```bash
+python3 pull_data.py validate
+```
+
 **Aggregate** — After ALL campaigns are fetched, merge the partial files:
 
 ```bash
@@ -105,6 +121,13 @@ This reads all `data/partials/*-structure.json`, `*-queries.json`, and `*-assets
 - `data/raw-structure.json` — all campaigns + ad groups merged
 - `data/raw-queries.json` — all keywords + search terms merged
 - `data/raw-assets.json` — all assets merged
+
+You can combine validation, aggregation, and compression after MCP rows are
+written with:
+
+```bash
+python3 pull_data.py finish
+```
 
 **Date range**: Always compute explicit YYYY-MM-DD dates from config. Never use date literals like `LAST_7_DAYS`. Strip hyphens from customer_id before MCP calls.
 

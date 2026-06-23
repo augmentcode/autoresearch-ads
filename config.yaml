@@ -15,6 +15,8 @@ campaigns:
   - gg_nam_dg_search_generic_codereview_cosmos
   - gg_nam_dg_search_generic_cosmos
   - gg_nam_dg_search_generic_platform_cosmos
+  - gg_nam_dg_search_solutions_code_review_cosmos
+  - gg_nam_dg_search_solutions_incident_management_cosmos
 
 constraints:
   headline_max_chars: 30
@@ -87,6 +89,14 @@ ad_groups:
   pull_request:
     campaign_type: generic
     intent: capability
+
+  # Solutions (live campaigns discovered 2026-06-23)
+  code_review_solutions_adgroup:
+    campaign_type: solutions
+    intent: code_review
+  incident_management_solutions_adgroup:
+    campaign_type: solutions
+    intent: incident_management
 
 # MCP query fields — used by program.md to build queries
 mcp_fields:

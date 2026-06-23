@@ -1,3 +1,2 @@
 cycle	date	conv_rate	cost_per_conv	assets_deployed	winners	losers	status	description
-1	2026-05-08	0.005263	406.36	0	0	0	observe	OBSERVE mode (Cosmos C1). 5 campaigns, 14 ad groups, 190 clicks, 1 conv. Brand exact only converter (48 clicks, 1 conv). Competitor claude_code $159 0 conv. No experiments yet.
-2	2026-05-11	0.003364	555.34	0	0	0	act	ACT mode (Cosmos C2). 743 clicks, 2.5 conv, $1388 spend. 4 ad groups eligible (>=100 clicks). Deployed 32 negative keywords across 3 campaigns (codereview/platform/generic) blocking competitor leakage (claude code, blackbox ai, opencode, openrouter, code rabbit) and irrelevant terms (ai code detector, pictoblox, deepseek, etc). Est. savings ~$387/mo.
+1	2026-06-23	0.000381	3047.53	0	0	0	baseline	Fresh Cosmos baseline reset. 7 campaigns, 17 ad groups, 7866 clicks, 3 conv. Included newly discovered solutions campaigns. Structure-only fresh pull.

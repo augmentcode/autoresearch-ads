@@ -39,8 +39,52 @@ def read_config():
         with open(CONFIG_PATH) as f:
             return yaml.safe_load(f) or {}
     except Exception as e:
-        print(f"WARNING: failed to load config.yaml: {e}")
+        print(f"WARNING: failed to load config.yaml via PyYAML: {e}")
+
+    # Minimal fallback parser for environments where PyYAML is not installed.
+    # snapshot.py only needs config.data_source.* to compute the date window,
+    # so avoid failing the whole snapshot on an optional dependency.
+    data_source = {}
+    in_data_source = False
+    section_indent = None
+
+    try:
+        with open(CONFIG_PATH) as f:
+            for raw_line in f:
+                line = raw_line.split("#", 1)[0].rstrip()
+                if not line.strip():
+                    continue
+
+                indent = len(line) - len(line.lstrip())
+                stripped = line.strip()
+
+                if stripped == "data_source:":
+                    in_data_source = True
+                    section_indent = indent
+                    continue
+
+                if in_data_source and indent <= section_indent:
+                    in_data_source = False
+
+                if not in_data_source:
+                    continue
+
+                if ":" not in stripped:
+                    continue
+
+                key, value = stripped.split(":", 1)
+                value = value.strip().strip('"').strip("'")
+                if value:
+                    data_source[key.strip()] = value
+    except Exception as fallback_error:
+        print(f"WARNING: fallback config parse failed: {fallback_error}")
         return {}
+
+    if data_source:
+        print("WARNING: using fallback config parser for data_source only")
+        return {"data_source": data_source}
+
+    return {}
 
 
 _NAMED_RANGES = {

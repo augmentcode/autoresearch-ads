@@ -1,5 +1,5 @@
 # Knowledge Base Index
-**Last updated**: 2026-05-01 | **Total pages**: 3 (+ schema, index, log)
+**Last updated**: 2026-06-23 | **Total pages**: 3 (+ schema, index, log)
 
 ---
 
@@ -39,9 +39,9 @@ The following legacy files contain knowledge that should be migrated into the KB
 
 | Legacy File | Status | Target Location |
 |------------|--------|----------------|
-| `memory/learnings.md` | Active — 8 cycles of experiment learnings | → `learnings/rules.md`, `learnings/winners.md`, `learnings/losers.md`, `learnings/patterns.md` |
-| `memory/experiments.jsonl` | Active — 25 experiment entries | → `sources/retro/experiments.jsonl` (copy as raw source) |
-| `memory/snapshots/*.json` | Active — 4 snapshots | → `sources/snapshots/` (move or symlink) |
+| `memory/learnings.md` | Active — reset for a fresh Cosmos baseline | → `learnings/rules.md`, `learnings/winners.md`, `learnings/losers.md`, `learnings/patterns.md` |
+| `memory/experiments.jsonl` | Active — currently empty after baseline reset | → `sources/retro/experiments.jsonl` (copy as raw source) |
+| `memory/snapshots/*.json` | Active — regenerated from fresh baseline runs | → `sources/snapshots/` (move or symlink) |
 | `product.md` | Current — Cosmos messaging (2026-06-03 refresh) | Operational ads brief; cross-references `03-product-positioning.md` |
 | `config.yaml` | Active — campaign config | Stays in root (operational, not knowledge) |
 | `program.md` | Active — agent program | Stays in root (operational, not knowledge) |
