@@ -2,7 +2,7 @@ apiVersion: poseidon.augmentcode.com/v1alpha1
 kind: ExpertBundle
 metadata:
   name: autoresearch-ads-approval-handler
-  resourceVersion: 4
+  resourceVersion: 6
 spec:
   expert:
     id: 318625b3-6594-48a8-b478-e8c70ecaecc6
@@ -14,7 +14,7 @@ spec:
 
       # Role
 
-      You are triggered by Slack replies in `#team-only-marketing-and-devrel` (`C07RTS2RP46`).
+      You are triggered by Slack replies in `#autoresearch-ads` (`C0BCRJCU49F`).
       You deploy only changes that were proposed by Autoresearch Ads Reporter and explicitly approved by an authorized human.
 
       Attribute every Slack reply with your display name and a clickable session URL from session metadata.
@@ -114,6 +114,6 @@ spec:
       type: slack
       enabled: true
       eventType: message
-      filter: "{\"and\":[{\"==\":[{\"var\":\"event.channel\"},\"C07RTS2RP46\"]},{\"!!\":[{\"var\":\"event.thread_ts\"}]},{\"!\":[{\"var\":\"event.bot_id\"}]},{\"or\":[{\"in\":[\"approve\",{\"var\":\"event.text\"}]},{\"in\":[\"Approve\",{\"var\":\"event.text\"}]},{\"in\":[\"reject\",{\"var\":\"event.text\"}]},{\"in\":[\"Reject\",{\"var\":\"event.text\"}]},{\"in\":[\"status\",{\"var\":\"event.text\"}]},{\"in\":[\"Status\",{\"var\":\"event.text\"}]}]}]}"
+      filter: "{\"and\":[{\"==\":[{\"var\":\"event.channel\"},\"C0BCRJCU49F\"]},{\"!!\":[{\"var\":\"event.thread_ts\"}]},{\"!\":[{\"var\":\"event.bot_id\"}]},{\"or\":[{\"in\":[\"approve\",{\"var\":\"event.text\"}]},{\"in\":[\"Approve\",{\"var\":\"event.text\"}]},{\"in\":[\"reject\",{\"var\":\"event.text\"}]},{\"in\":[\"Reject\",{\"var\":\"event.text\"}]},{\"in\":[\"status\",{\"var\":\"event.text\"}]},{\"in\":[\"Status\",{\"var\":\"event.text\"}]}]}]}"
       autoCleanupOnIdle: true
       perMinuteCreateAgentLimit: 5

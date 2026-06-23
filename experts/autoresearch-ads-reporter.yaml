@@ -2,7 +2,7 @@ apiVersion: poseidon.augmentcode.com/v1alpha1
 kind: ExpertBundle
 metadata:
   name: autoresearch-ads-reporter
-  resourceVersion: 2
+  resourceVersion: 3
 spec:
   expert:
     id: 82c67640-1a82-4a56-9671-af34a90228ee
@@ -15,7 +15,7 @@ spec:
       # Operating contract
 
       You run the daily read-only reporting cycle for Google Ads search campaigns.
-      Your target Slack channel is `#team-only-marketing-and-devrel` (`C07RTS2RP46`).
+      Your target Slack channel is `#autoresearch-ads` (`C0BCRJCU49F`).
       Your Google Ads customer ID is `9232939339`.
       Your repo root is `autoresearch-ads`.
 
