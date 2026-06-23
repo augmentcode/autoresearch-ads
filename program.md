@@ -34,7 +34,36 @@ Before starting a cycle, run two checks:
    number is `last_cycle + 1`. If `results.tsv` has only the header,
    this is cycle 1. Never hard-code the cycle number.
 
-### Step 1: Data Pull
+### Step 1: Campaign Discovery and Data Pull
+
+Before pulling performance data, reconcile live Google Ads campaigns against
+`config.yaml` so newly created Cosmos campaigns are included immediately.
+
+Generate the campaign discovery request:
+
+```bash
+python3 pull_data.py discover
+```
+
+Use `data/campaign-discovery-plan.json` as the source of truth for the MCP
+`search` call. Execute `plan["mcp"]`, then write returned rows to
+`data/live-campaigns.json` under the `campaigns` key:
+
+```json
+{"campaigns": [<raw MCP campaign rows>]}
+```
+
+Write the reconciliation report:
+
+```bash
+python3 pull_data.py reconcile
+```
+
+If `data/campaign-reconciliation.json` reports `live_not_configured`, include
+those campaigns in this run and mention config drift in Slack. If it reports
+`configured_not_live`, keep analyzing configured campaigns but flag the stale
+config entry for review. Do not let config drift block the cycle unless the MCP
+discovery query itself failed.
 
 Make MCP queries to get current campaign performance. Include conversion fields in every query.
 
@@ -43,7 +72,7 @@ Make MCP queries to get current campaign performance. Include conversion fields 
 Generate the repeatable pull plan first:
 
 ```bash
-python3 pull_data.py plan
+python3 pull_data.py plan --reconciliation data/campaign-reconciliation.json
 ```
 
 Use `data/pull-plan.json` as the source of truth for MCP `search` calls. For

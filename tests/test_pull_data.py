@@ -58,6 +58,39 @@ class PullDataTests(unittest.TestCase):
         self.assertEqual(plan["request_count"], 10)
         self.assertEqual(plan["requests"][0]["partial"]["key"], "campaigns")
 
+    def test_campaign_reconciliation_adds_live_not_configured_to_plan(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "config.yaml"
+            path.write_text(CONFIG)
+            config = pull_data._fallback_config(path)
+        live_payload = {
+            "campaigns": [
+                {"campaign": {"name": "campaign_two"}},
+                {"campaign": {"name": "campaign_three_cosmos"}},
+                {"campaign": {"name": "ignore_me"}},
+            ]
+        }
+
+        reconciliation = pull_data.build_campaign_reconciliation(config, live_payload, name_pattern="campaign")
+        plan = pull_data.build_pull_plan(config, today=date(2026, 6, 23), reconciliation=reconciliation)
+
+        self.assertEqual(reconciliation["live_not_configured"], ["campaign_three_cosmos"])
+        self.assertEqual(reconciliation["configured_not_live"], ["campaign_one"])
+        self.assertEqual(plan["campaign_count"], 3)
+        self.assertEqual(plan["request_count"], 15)
+
+    def test_discovery_plan_contains_active_search_campaign_query(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "config.yaml"
+            path.write_text(CONFIG)
+            config = pull_data._fallback_config(path)
+
+        plan = pull_data.build_discovery_plan(config)
+
+        self.assertEqual(plan["mcp"]["arguments"]["resource"], "campaign")
+        self.assertIn("campaign.status = 'ENABLED'", plan["mcp"]["arguments"]["conditions"])
+        self.assertIn("campaign.advertising_channel_type = 'SEARCH'", plan["mcp"]["arguments"]["conditions"])
+
 
 if __name__ == "__main__":
     unittest.main()

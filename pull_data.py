@@ -7,6 +7,8 @@ validating the partial JSON files written from those requests, then running the
 aggregation and snapshot steps.
 
 Usage:
+  python3 pull_data.py discover
+  python3 pull_data.py reconcile
   python3 pull_data.py plan
   python3 pull_data.py validate
   python3 pull_data.py finish
@@ -25,6 +27,9 @@ ROOT = Path(__file__).resolve().parent
 CONFIG_PATH = ROOT / "config.yaml"
 DATA_DIR = ROOT / "data"
 PLAN_PATH = DATA_DIR / "pull-plan.json"
+DISCOVERY_PLAN_PATH = DATA_DIR / "campaign-discovery-plan.json"
+LIVE_CAMPAIGNS_PATH = DATA_DIR / "live-campaigns.json"
+RECONCILIATION_PATH = DATA_DIR / "campaign-reconciliation.json"
 
 _NAMED_RANGES = {
     "last_7_days": 7,
@@ -126,6 +131,99 @@ def _slug(value):
     return re.sub(r"[^A-Za-z0-9_.-]+", "_", value).strip("_")
 
 
+def _campaigns_from_config(config):
+    return list(dict.fromkeys(config.get("campaigns", [])))
+
+
+def _nested_get(value, path):
+    if not isinstance(value, dict):
+        return None
+    if path in value:
+        return value[path]
+    current = value
+    for part in path.split("."):
+        if not isinstance(current, dict):
+            return None
+        if part in current:
+            current = current[part]
+            continue
+        camel = re.sub(r"_([a-z])", lambda match: match.group(1).upper(), part)
+        if camel in current:
+            current = current[camel]
+            continue
+        return None
+    return current
+
+
+def _campaign_name_from_row(row):
+    if isinstance(row, str):
+        return row
+    if not isinstance(row, dict):
+        return None
+    for path in ("campaign.name", "name"):
+        value = _nested_get(row, path)
+        if value:
+            return str(value)
+    return None
+
+
+def extract_live_campaign_names(payload, name_pattern="_cosmos"):
+    rows = payload.get("campaigns", payload) if isinstance(payload, dict) else payload
+    if not isinstance(rows, list):
+        return []
+    names = []
+    for row in rows:
+        name = _campaign_name_from_row(row)
+        if name and name_pattern in name:
+            names.append(name)
+    return sorted(dict.fromkeys(names))
+
+
+def build_discovery_plan(config, name_pattern="_cosmos"):
+    fields = ["campaign.name", "campaign.id", "campaign.status", "campaign.advertising_channel_type"]
+    return {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "customer_id": _customer_id(config),
+        "name_pattern": name_pattern,
+        "mcp": {
+            "tool": "search",
+            "arguments": {
+                "customer_id": _customer_id(config),
+                "resource": "campaign",
+                "fields": fields,
+                "conditions": [
+                    "campaign.status = 'ENABLED'",
+                    "campaign.advertising_channel_type = 'SEARCH'",
+                    f"campaign.name LIKE '%{name_pattern}%'",
+                ],
+                "orderings": ["campaign.name ASC"],
+                "limit": 1000,
+            },
+        },
+        "output": {"path": str(LIVE_CAMPAIGNS_PATH.relative_to(ROOT)), "key": "campaigns"},
+    }
+
+
+def build_campaign_reconciliation(config, live_payload, name_pattern="_cosmos"):
+    configured = _campaigns_from_config(config)
+    live = extract_live_campaign_names(live_payload, name_pattern=name_pattern)
+    configured_set = set(configured)
+    live_set = set(live)
+    live_not_configured = sorted(live_set - configured_set)
+    configured_not_live = sorted(configured_set - live_set)
+    plan_campaigns = list(dict.fromkeys(configured + live_not_configured))
+    return {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "name_pattern": name_pattern,
+        "configured_campaigns": configured,
+        "live_campaigns": live,
+        "live_not_configured": live_not_configured,
+        "configured_not_live": configured_not_live,
+        "plan_campaigns": plan_campaigns,
+        "drift": bool(live_not_configured or configured_not_live),
+    }
+
+
 def _campaign_condition(campaign_name):
     escaped = campaign_name.replace("'", "\\'")
     return f"campaign.name = '{escaped}'"
@@ -174,12 +272,15 @@ def _request(config, campaign, date_range, partial_kind, target_key, resource, f
     }
 
 
-def build_pull_plan(config, today=None, enabled_only=False):
+def build_pull_plan(config, today=None, enabled_only=False, reconciliation=None):
     date_range = compute_date_range(config, today=today)
     requests = []
     partials = []
+    campaigns = _campaigns_from_config(config)
+    if reconciliation and reconciliation.get("plan_campaigns"):
+        campaigns = list(dict.fromkeys(reconciliation["plan_campaigns"]))
 
-    for campaign in config.get("campaigns", []):
+    for campaign in campaigns:
         slug = _slug(campaign)
         partials.append({
             "campaign": campaign,
@@ -202,7 +303,9 @@ def build_pull_plan(config, today=None, enabled_only=False):
         "customer_id": _customer_id(config),
         "date_range": date_range,
         "enabled_only": enabled_only,
-        "campaign_count": len(config.get("campaigns", [])),
+        "campaign_count": len(campaigns),
+        "configured_campaign_count": len(_campaigns_from_config(config)),
+        "campaign_reconciliation": reconciliation,
         "request_count": len(requests),
         "partials": partials,
         "requests": requests,
@@ -249,12 +352,53 @@ def validate_partials(plan):
 
 def cmd_plan(args):
     config = read_config(args.config)
-    plan = build_pull_plan(config, enabled_only=args.enabled_only)
+    reconciliation = None
+    if args.reconciliation and args.reconciliation.exists():
+        with open(args.reconciliation) as f:
+            reconciliation = json.load(f)
+    plan = build_pull_plan(config, enabled_only=args.enabled_only, reconciliation=reconciliation)
     output = write_plan(plan, args.output)
     print(f"Wrote {output}")
     print(f"Campaigns: {plan['campaign_count']} | MCP requests: {plan['request_count']}")
+    if reconciliation and reconciliation.get("drift"):
+        print(
+            "Campaign drift: "
+            f"+{len(reconciliation.get('live_not_configured', []))} live not configured, "
+            f"-{len(reconciliation.get('configured_not_live', []))} configured not live"
+        )
     print(f"Date range: {plan['date_range']['start']} → {plan['date_range']['end']}")
     print("Next: execute each plan['requests'] MCP search and write rows into data/partials/*.json")
+    return 0
+
+
+def cmd_discover(args):
+    config = read_config(args.config)
+    plan = build_discovery_plan(config, name_pattern=args.name_pattern)
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    with open(args.output, "w") as f:
+        json.dump(plan, f, indent=2)
+    print(f"Wrote {args.output}")
+    print(f"Next: execute plan['mcp'] and write rows to {plan['output']['path']} under key {plan['output']['key']}")
+    return 0
+
+
+def cmd_reconcile(args):
+    config = read_config(args.config)
+    if not args.live_campaigns.exists():
+        print(f"ERROR: missing {args.live_campaigns}. Run discover and write live campaigns first.")
+        return 1
+    with open(args.live_campaigns) as f:
+        live_payload = json.load(f)
+    reconciliation = build_campaign_reconciliation(config, live_payload, name_pattern=args.name_pattern)
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    with open(args.output, "w") as f:
+        json.dump(reconciliation, f, indent=2)
+    print(f"Wrote {args.output}")
+    print(f"Configured: {len(reconciliation['configured_campaigns'])} | Live: {len(reconciliation['live_campaigns'])} | Plan: {len(reconciliation['plan_campaigns'])}")
+    if reconciliation["live_not_configured"]:
+        print("Live not configured: " + ", ".join(reconciliation["live_not_configured"]))
+    if reconciliation["configured_not_live"]:
+        print("Configured not live: " + ", ".join(reconciliation["configured_not_live"]))
     return 0
 
 
@@ -285,9 +429,23 @@ def build_arg_parser():
     parser = argparse.ArgumentParser(description="Prepare and finalize autoresearch Google Ads MCP pulls")
     subparsers = parser.add_subparsers(dest="command")
 
+    discover = subparsers.add_parser("discover", help="write Google Ads campaign discovery MCP request plan")
+    discover.add_argument("--config", type=Path, default=CONFIG_PATH)
+    discover.add_argument("--output", type=Path, default=DISCOVERY_PLAN_PATH)
+    discover.add_argument("--name-pattern", default="_cosmos")
+    discover.set_defaults(func=cmd_discover)
+
+    reconcile = subparsers.add_parser("reconcile", help="compare live campaigns to config and write reconciliation")
+    reconcile.add_argument("--config", type=Path, default=CONFIG_PATH)
+    reconcile.add_argument("--live-campaigns", type=Path, default=LIVE_CAMPAIGNS_PATH)
+    reconcile.add_argument("--output", type=Path, default=RECONCILIATION_PATH)
+    reconcile.add_argument("--name-pattern", default="_cosmos")
+    reconcile.set_defaults(func=cmd_reconcile)
+
     plan = subparsers.add_parser("plan", help="write data/pull-plan.json")
     plan.add_argument("--config", type=Path, default=CONFIG_PATH)
     plan.add_argument("--output", type=Path, default=PLAN_PATH)
+    plan.add_argument("--reconciliation", type=Path, default=RECONCILIATION_PATH)
     plan.add_argument("--enabled-only", action="store_true", help="add ENABLED status filters to structure requests")
     plan.set_defaults(func=cmd_plan)
 

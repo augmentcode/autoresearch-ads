@@ -1,6 +1,9 @@
 # Raw MCP data (large, ephemeral — regenerated each cycle)
 data/raw-*.json
 data/partials/
+data/campaign-discovery-plan.json
+data/campaign-reconciliation.json
+data/live-campaigns.json
 data/pull-plan.json
 
 # Compressed snapshot (regenerated each cycle)

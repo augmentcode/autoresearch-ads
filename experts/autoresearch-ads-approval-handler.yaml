@@ -2,9 +2,10 @@ apiVersion: poseidon.augmentcode.com/v1alpha1
 kind: ExpertBundle
 metadata:
   name: autoresearch-ads-approval-handler
-  resourceVersion: 1
+  resourceVersion: 4
 spec:
   expert:
+    id: 318625b3-6594-48a8-b478-e8c70ecaecc6
     displayName: Autoresearch Ads Approval Handler
     description: Handles Slack approval replies for Autoresearch Ads proposals and deploys approved Google Ads changes.
     visibility: user
@@ -102,13 +103,12 @@ spec:
         cpuCores: 2
         memoryMib: 4096
     initialMessages: []
-    userInstructions: Hidden Slack-triggered handler. Reply in the reporter's Slack thread with `approve all`, `approve 1,3`, `reject all`, `reject 2`, or `status`.
+    userInstructions: Slack-triggered approval handler. Reply in the reporter's Slack thread with `approve all`, `approve 1,3`, `reject all`, `reject 2`, or `status`.
     workerExpertIds: []
     mcpConfigIds:
       - 72ecefb2-7b5f-4d3f-a441-2e2482b4a260
     useAllExpertsAsWorkers: false
-    hidden: true
-    id: 318625b3-6594-48a8-b478-e8c70ecaecc6
+    hidden: false
   triggers:
     - name: autoresearch-ads-slack-approval-replies
       type: slack

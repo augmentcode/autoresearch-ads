@@ -2,9 +2,10 @@ apiVersion: poseidon.augmentcode.com/v1alpha1
 kind: ExpertBundle
 metadata:
   name: autoresearch-ads-reporter
-  resourceVersion: 1
+  resourceVersion: 2
 spec:
   expert:
+    id: 82c67640-1a82-4a56-9671-af34a90228ee
     displayName: Autoresearch Ads Reporter
     description: Runs the Autoresearch Ads daily read-only cycle, posts a concise Slack report, and records pending experiment approvals.
     visibility: user
@@ -52,13 +53,14 @@ spec:
          - Respect the idempotency rule in `program.md`: if today's cycle already exists in `results.tsv`, post a skip summary and stop.
 
       2. Campaign reconciliation
-         - Query Google Ads for active Search campaigns matching Cosmos naming patterns, especially names containing `_cosmos`.
-         - Compare live campaigns to `config.yaml.campaigns`.
-         - Include newly discovered live Cosmos campaigns in the current analysis.
+         - Run `python3 pull_data.py discover`.
+         - Execute the MCP request in `data/campaign-discovery-plan.json` and write the returned rows to `data/live-campaigns.json` under key `campaigns`.
+         - Run `python3 pull_data.py reconcile`.
+         - Use `data/campaign-reconciliation.json` to include newly discovered live Cosmos campaigns in the current analysis.
          - If config drift exists, report it in Slack and propose a repo PR; do not silently ignore drift.
 
       3. Pull data
-         - Run `python3 pull_data.py plan`.
+         - Run `python3 pull_data.py plan --reconciliation data/campaign-reconciliation.json`.
          - For each request in `data/pull-plan.json`, call the Google Ads MCP `search` tool with `mcp.arguments`.
          - Write rows into `data/partials/{campaign}-{kind}.json` under the listed `partial.key`.
          - Run `python3 pull_data.py finish`.
@@ -110,7 +112,6 @@ spec:
     mcpConfigIds:
       - 72ecefb2-7b5f-4d3f-a441-2e2482b4a260
     useAllExpertsAsWorkers: false
-    id: 82c67640-1a82-4a56-9671-af34a90228ee
   triggers:
     - name: weekday-morning-autoresearch-ads-report
       type: scheduled
