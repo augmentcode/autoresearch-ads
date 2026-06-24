@@ -7,15 +7,20 @@ validating the partial JSON files written from those requests, then running the
 aggregation and snapshot steps.
 
 Usage:
-  python3 pull_data.py discover
-  python3 pull_data.py reconcile
-  python3 pull_data.py plan
-  python3 pull_data.py validate
-  python3 pull_data.py finish
+  python3 pull_data.py discover [--data-root <run-dir>]
+  python3 pull_data.py reconcile [--data-root <run-dir>]
+  python3 pull_data.py plan [--data-root <run-dir>]
+  python3 pull_data.py materialize [--data-root <run-dir>]
+  python3 pull_data.py write-partial [--data-root <run-dir>] --request-index N --response-file <file>
+  python3 pull_data.py validate [--data-root <run-dir>]
+  python3 pull_data.py finish [--data-root <run-dir>]
+
+Generated artifacts default to data/ or $AUTORESEARCH_DATA_ROOT when set.
 """
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -25,11 +30,47 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 CONFIG_PATH = ROOT / "config.yaml"
-DATA_DIR = ROOT / "data"
+ENV_DATA_ROOT = "AUTORESEARCH_DATA_ROOT"
+DEFAULT_DATA_DIR = ROOT / "data"
+DATA_DIR = DEFAULT_DATA_DIR
+ARTIFACT_TOOL = "search_to_artifact"
+ARTIFACT_COMPRESSION = "none"
 PLAN_PATH = DATA_DIR / "pull-plan.json"
 DISCOVERY_PLAN_PATH = DATA_DIR / "campaign-discovery-plan.json"
 LIVE_CAMPAIGNS_PATH = DATA_DIR / "live-campaigns.json"
 RECONCILIATION_PATH = DATA_DIR / "campaign-reconciliation.json"
+
+
+def resolve_data_root(data_root=None):
+    """Return the directory that stores generated pull artifacts."""
+    value = data_root or os.environ.get(ENV_DATA_ROOT) or DEFAULT_DATA_DIR
+    path = Path(value)
+    if not path.is_absolute():
+        path = ROOT / path
+    return path
+
+
+def data_path(filename, data_root=None):
+    return resolve_data_root(data_root) / filename
+
+
+def _resolve_data_path(path, data_root=None):
+    """Resolve a plan path, supporting legacy repo-relative data/... paths."""
+    path = Path(path)
+    if path.is_absolute():
+        return path
+    if path.parts and path.parts[0] == "data":
+        return ROOT / path
+    return resolve_data_root(data_root) / path
+
+
+def _arg_data_root(args):
+    return resolve_data_root(getattr(args, "data_root", None))
+
+
+def _default_arg_path(args, attr, filename):
+    explicit = getattr(args, attr, None)
+    return explicit if explicit is not None else data_path(filename, _arg_data_root(args))
 
 _NAMED_RANGES = {
     "last_7_days": 7,
@@ -183,10 +224,11 @@ def build_discovery_plan(config, name_pattern="_cosmos"):
     fields = ["campaign.name", "campaign.id", "campaign.status", "campaign.advertising_channel_type"]
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
+        "storage": {"path_mode": "data-root-relative", "data_root_env": ENV_DATA_ROOT},
         "customer_id": _customer_id(config),
         "name_pattern": name_pattern,
         "mcp": {
-            "tool": "search",
+            "tool": ARTIFACT_TOOL,
             "arguments": {
                 "customer_id": _customer_id(config),
                 "resource": "campaign",
@@ -198,9 +240,10 @@ def build_discovery_plan(config, name_pattern="_cosmos"):
                 ],
                 "orderings": ["campaign.name ASC"],
                 "limit": 1000,
+                "compression": ARTIFACT_COMPRESSION,
             },
         },
-        "output": {"path": str(LIVE_CAMPAIGNS_PATH.relative_to(ROOT)), "key": "campaigns"},
+        "output": {"path": "live-campaigns.json", "key": "campaigns"},
     }
 
 
@@ -249,11 +292,11 @@ def _request(config, campaign, date_range, partial_kind, target_key, resource, f
         "campaign": campaign,
         "partial": {
             "kind": partial_kind,
-            "path": f"data/partials/{_slug(campaign)}-{partial_kind}.json",
+            "path": f"partials/{_slug(campaign)}-{partial_kind}.json",
             "key": target_key,
         },
         "mcp": {
-            "tool": "search",
+            "tool": ARTIFACT_TOOL,
             "arguments": {
                 "customer_id": _customer_id(config),
                 "resource": resource,
@@ -267,6 +310,7 @@ def _request(config, campaign, date_range, partial_kind, target_key, resource, f
                 ),
                 "orderings": ["metrics.impressions DESC"],
                 "limit": 5000,
+                "compression": ARTIFACT_COMPRESSION,
             },
         },
     }
@@ -285,9 +329,9 @@ def build_pull_plan(config, today=None, enabled_only=False, reconciliation=None)
         partials.append({
             "campaign": campaign,
             "files": {
-                "structure": {"path": f"data/partials/{slug}-structure.json", "keys": ["campaigns", "ad_groups"]},
-                "queries": {"path": f"data/partials/{slug}-queries.json", "keys": ["keywords", "search_terms"]},
-                "assets": {"path": f"data/partials/{slug}-assets.json", "keys": ["assets"]},
+                "structure": {"path": f"partials/{slug}-structure.json", "keys": ["campaigns", "ad_groups"]},
+                "queries": {"path": f"partials/{slug}-queries.json", "keys": ["keywords", "search_terms"]},
+                "assets": {"path": f"partials/{slug}-assets.json", "keys": ["assets"]},
             },
         })
         requests.extend([
@@ -300,6 +344,7 @@ def build_pull_plan(config, today=None, enabled_only=False, reconciliation=None)
 
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
+        "storage": {"path_mode": "data-root-relative", "data_root_env": ENV_DATA_ROOT},
         "customer_id": _customer_id(config),
         "date_range": date_range,
         "enabled_only": enabled_only,
@@ -324,12 +369,62 @@ def load_plan(path=PLAN_PATH):
         return json.load(f)
 
 
-def validate_partials(plan):
+def _normalize_response_data(response_data, key):
+    """Normalize response data to a list of rows."""
+    if isinstance(response_data, dict):
+        if "rows" in response_data:
+            return response_data["rows"]
+        elif key in response_data:
+            return response_data[key]
+        else:
+            # Wrap single row dict in a list
+            return [response_data]
+    return response_data
+
+
+def write_partial(plan, request_index, response_data, output_path=None, output_key=None, data_root=None):
+    """Write response data into the correct partial file/key from a plan request."""
+    if output_path is not None:
+        # Discovery or generic mode
+        target_path = _resolve_data_path(output_path, data_root)
+        key = output_key
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        if target_path.exists():
+            with open(target_path) as f:
+                data = json.load(f)
+        else:
+            data = {}
+        data[key] = response_data
+        with open(target_path, "w") as f:
+            json.dump(data, f, indent=2)
+        return target_path, key, len(response_data)
+
+    # Plan mode
+    request = plan["requests"][request_index]
+    partial = request["partial"]
+    target_path = _resolve_data_path(partial["path"], data_root)
+    key = partial["key"]
+
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    if target_path.exists():
+        with open(target_path) as f:
+            data = json.load(f)
+    else:
+        data = {}
+
+    data[key] = response_data
+    with open(target_path, "w") as f:
+        json.dump(data, f, indent=2)
+
+    return target_path, key, len(response_data)
+
+
+def validate_partials(plan, data_root=None):
     errors = []
     summaries = []
     for partial in plan.get("partials", []):
         for kind, spec in partial.get("files", {}).items():
-            path = ROOT / spec["path"]
+            path = _resolve_data_path(spec["path"], data_root)
             if not path.exists():
                 errors.append(f"missing {spec['path']}")
                 continue
@@ -352,13 +447,17 @@ def validate_partials(plan):
 
 def cmd_plan(args):
     config = read_config(args.config)
+    data_root = _arg_data_root(args)
+    output_path = _default_arg_path(args, "output", "pull-plan.json")
+    reconciliation_path = _default_arg_path(args, "reconciliation", "campaign-reconciliation.json")
     reconciliation = None
-    if args.reconciliation and args.reconciliation.exists():
-        with open(args.reconciliation) as f:
+    if reconciliation_path.exists():
+        with open(reconciliation_path) as f:
             reconciliation = json.load(f)
     plan = build_pull_plan(config, enabled_only=args.enabled_only, reconciliation=reconciliation)
-    output = write_plan(plan, args.output)
+    output = write_plan(plan, output_path)
     print(f"Wrote {output}")
+    print(f"Data root: {data_root}")
     print(f"Campaigns: {plan['campaign_count']} | MCP requests: {plan['request_count']}")
     if reconciliation and reconciliation.get("drift"):
         print(
@@ -367,33 +466,43 @@ def cmd_plan(args):
             f"-{len(reconciliation.get('configured_not_live', []))} configured not live"
         )
     print(f"Date range: {plan['date_range']['start']} → {plan['date_range']['end']}")
-    print("Next: execute each plan['requests'] MCP search and write rows into data/partials/*.json")
+    print(
+        f"Next: run materialize to see missing partials and required {ARTIFACT_TOOL} requests, "
+        "download each artifact JSON, then use write-partial per request"
+    )
     return 0
 
 
 def cmd_discover(args):
     config = read_config(args.config)
     plan = build_discovery_plan(config, name_pattern=args.name_pattern)
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    with open(args.output, "w") as f:
+    output_path = _default_arg_path(args, "output", "campaign-discovery-plan.json")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "w") as f:
         json.dump(plan, f, indent=2)
-    print(f"Wrote {args.output}")
-    print(f"Next: execute plan['mcp'] and write rows to {plan['output']['path']} under key {plan['output']['key']}")
+    print(f"Wrote {output_path}")
+    print(f"Data root: {_arg_data_root(args)}")
+    print(
+        f"Next: execute plan['mcp'] via {ARTIFACT_TOOL}, download the artifact JSON, "
+        "and run write-partial --discovery --response-file <path> to persist rows"
+    )
     return 0
 
 
 def cmd_reconcile(args):
     config = read_config(args.config)
-    if not args.live_campaigns.exists():
-        print(f"ERROR: missing {args.live_campaigns}. Run discover and write live campaigns first.")
+    live_campaigns_path = _default_arg_path(args, "live_campaigns", "live-campaigns.json")
+    output_path = _default_arg_path(args, "output", "campaign-reconciliation.json")
+    if not live_campaigns_path.exists():
+        print(f"ERROR: missing {live_campaigns_path}. Run discover and write live campaigns first.")
         return 1
-    with open(args.live_campaigns) as f:
+    with open(live_campaigns_path) as f:
         live_payload = json.load(f)
     reconciliation = build_campaign_reconciliation(config, live_payload, name_pattern=args.name_pattern)
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    with open(args.output, "w") as f:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "w") as f:
         json.dump(reconciliation, f, indent=2)
-    print(f"Wrote {args.output}")
+    print(f"Wrote {output_path}")
     print(f"Configured: {len(reconciliation['configured_campaigns'])} | Live: {len(reconciliation['live_campaigns'])} | Plan: {len(reconciliation['plan_campaigns'])}")
     if reconciliation["live_not_configured"]:
         print("Live not configured: " + ", ".join(reconciliation["live_not_configured"]))
@@ -402,62 +511,253 @@ def cmd_reconcile(args):
     return 0
 
 
+def cmd_write_partial(args):
+    data_root = _arg_data_root(args)
+    # Read response data
+    if args.response_file:
+        with open(args.response_file) as f:
+            response_data = json.load(f)
+    elif args.response_json:
+        response_data = json.loads(args.response_json)
+    else:
+        print("ERROR: --response-file or --response-json required")
+        return 1
+
+    if args.discovery:
+        discovery_plan_path = _default_arg_path(args, "discovery_plan", "campaign-discovery-plan.json")
+        plan = load_plan(discovery_plan_path)
+        target_path = _resolve_data_path(plan["output"]["path"], data_root)
+        key = plan["output"]["key"]
+        response_data = _normalize_response_data(response_data, key)
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        if target_path.exists():
+            with open(target_path) as f:
+                data = json.load(f)
+        else:
+            data = {}
+        data[key] = response_data
+        with open(target_path, "w") as f:
+            json.dump(data, f, indent=2)
+        print(f"Wrote {len(response_data)} rows to {target_path} under key {key}")
+        return 0
+
+    if args.request_index is None:
+        print("ERROR: --request-index required (unless --discovery)")
+        return 1
+
+    plan_path = _default_arg_path(args, "plan", "pull-plan.json")
+    plan = load_plan(plan_path)
+    try:
+        request = plan["requests"][args.request_index]
+    except IndexError:
+        print(f"ERROR: invalid request index {args.request_index}")
+        return 1
+
+    partial = request["partial"]
+    target_path = _resolve_data_path(partial["path"], data_root)
+    key = partial["key"]
+    response_data = _normalize_response_data(response_data, key)
+
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    if target_path.exists():
+        with open(target_path) as f:
+            data = json.load(f)
+    else:
+        data = {}
+
+    data[key] = response_data
+    with open(target_path, "w") as f:
+        json.dump(data, f, indent=2)
+
+    print(f"Wrote {len(response_data)} rows to {target_path} under key {key}")
+    return 0
+
+
+def cmd_materialize(args):
+    data_root = _arg_data_root(args)
+    plan = load_plan(_default_arg_path(args, "plan", "pull-plan.json"))
+    errors = []
+    missing_keys_map = {}
+
+    for partial in plan.get("partials", []):
+        for kind, spec in partial.get("files", {}).items():
+            path = _resolve_data_path(spec["path"], data_root)
+            missing_keys = []
+            if not path.exists():
+                errors.append(f"missing {spec['path']}")
+                missing_keys = spec.get("keys", [])
+            else:
+                try:
+                    with open(path) as f:
+                        data = json.load(f)
+                except Exception as exc:
+                    errors.append(f"invalid JSON {spec['path']}: {exc}")
+                    missing_keys = spec.get("keys", [])
+                else:
+                    for key in spec.get("keys", []):
+                        value = data.get(key)
+                        if not isinstance(value, list):
+                            errors.append(f"{spec['path']} missing list key {key}")
+                            missing_keys.append(key)
+
+            missing_keys_map[spec["path"]] = missing_keys
+
+    # Find requests that write to missing file/keys
+    missing_requests = []
+    for i, req in enumerate(plan.get("requests", [])):
+        req_partial = req["partial"]
+        if req_partial["path"] in missing_keys_map and req_partial["key"] in missing_keys_map[req_partial["path"]]:
+            missing_requests.append((i, req))
+
+    # Remove duplicates while preserving order
+    seen = set()
+    unique_missing = []
+    for item in missing_requests:
+        if item[0] not in seen:
+            seen.add(item[0])
+            unique_missing.append(item)
+
+    if not errors:
+        print("All partials present and valid. Nothing to materialize.")
+        return 0
+
+    if args.dry_run:
+        print("Missing partials (dry-run):")
+        for error in errors:
+            print(f"  {error}")
+        print(f"\nMissing requests: {len(unique_missing)}")
+        for i, req in unique_missing:
+            print(f"  [{i}] {req['campaign']} {req['partial']['key']}: {req['mcp']['arguments']['resource']}")
+        return 0
+
+    print("Missing partials:")
+    for error in errors:
+        print(f"  {error}")
+    print(f"\nTo materialize missing requests, run each {ARTIFACT_TOOL} request, download the artifact JSON, and then:")
+    for i, req in unique_missing:
+        print(f"  python3 pull_data.py write-partial --data-root {data_root} --request-index {i} --response-file /tmp/resp_{i}.json")
+    print("\nOr use --dry-run to see the full request list.")
+    return 1
+
+
 def cmd_validate(args):
-    plan = load_plan(args.plan)
-    errors, summaries = validate_partials(plan)
+    data_root = _arg_data_root(args)
+    plan = load_plan(_default_arg_path(args, "plan", "pull-plan.json"))
+    errors, summaries = validate_partials(plan, data_root=data_root)
     for campaign, kind, path, counts in summaries:
         count_text = ", ".join(f"{key}={value}" for key, value in counts.items())
         print(f"OK {campaign} {kind}: {path} ({count_text})")
     if errors:
         for error in errors:
             print(f"ERROR: {error}")
+        print("\nRun 'python3 pull_data.py materialize' to see missing requests and how to persist them.")
         return 1
     print("All partials valid")
     return 0
 
 
+def _write_run_manifest(data_root, plan, summaries):
+    row_counts = {}
+    partial_files = set()
+    for _campaign, _kind, path, counts in summaries:
+        partial_files.add(path)
+        for key, value in counts.items():
+            row_counts[key] = row_counts.get(key, 0) + value
+
+    snapshot_path = data_root / "snapshot.json"
+    manifest = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "data_root": str(data_root),
+        "date_range": plan.get("date_range"),
+        "campaign_count": plan.get("campaign_count"),
+        "request_count": plan.get("request_count"),
+        "partial_file_count": len(partial_files),
+        "row_counts": row_counts,
+        "validation_status": "passed",
+        "snapshot_path": str(snapshot_path),
+    }
+
+    manifest_path = data_root / "run-manifest.json"
+    with open(manifest_path, "w") as f:
+        json.dump(manifest, f, indent=2)
+
+    latest_root = data_root.parent.parent if data_root.parent.name == "runs" else data_root
+    latest_path = latest_root / "latest.json"
+    latest_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(latest_path, "w") as f:
+        json.dump({"latest_run": str(data_root), "manifest": str(manifest_path)}, f, indent=2)
+
+    print(f"Run manifest: {manifest_path}")
+    print(f"Latest pointer: {latest_path}")
+
+
 def cmd_finish(args):
+    data_root = _arg_data_root(args)
     status = cmd_validate(args)
     if status != 0:
         return status
-    subprocess.run([sys.executable, "aggregate.py"], cwd=ROOT, check=True)
-    subprocess.run([sys.executable, "snapshot.py"], cwd=ROOT, check=True)
+    subprocess.run([sys.executable, "aggregate.py", "--data-root", str(data_root)], cwd=ROOT, check=True)
+    subprocess.run([sys.executable, "snapshot.py", "--data-root", str(data_root)], cwd=ROOT, check=True)
+    plan = load_plan(_default_arg_path(args, "plan", "pull-plan.json"))
+    _, summaries = validate_partials(plan, data_root=data_root)
+    _write_run_manifest(data_root, plan, summaries)
     return 0
 
 
 def build_arg_parser():
     parser = argparse.ArgumentParser(description="Prepare and finalize autoresearch Google Ads MCP pulls")
     subparsers = parser.add_subparsers(dest="command")
+    data_root_parent = argparse.ArgumentParser(add_help=False)
+    data_root_parent.add_argument(
+        "--data-root",
+        type=Path,
+        default=None,
+        help=f"generated artifact root; defaults to ${ENV_DATA_ROOT} or data/",
+    )
 
-    discover = subparsers.add_parser("discover", help="write Google Ads campaign discovery MCP request plan")
+    discover = subparsers.add_parser("discover", parents=[data_root_parent], help="write Google Ads campaign discovery MCP request plan")
     discover.add_argument("--config", type=Path, default=CONFIG_PATH)
-    discover.add_argument("--output", type=Path, default=DISCOVERY_PLAN_PATH)
+    discover.add_argument("--output", type=Path, default=None)
     discover.add_argument("--name-pattern", default="_cosmos")
     discover.set_defaults(func=cmd_discover)
 
-    reconcile = subparsers.add_parser("reconcile", help="compare live campaigns to config and write reconciliation")
+    reconcile = subparsers.add_parser("reconcile", parents=[data_root_parent], help="compare live campaigns to config and write reconciliation")
     reconcile.add_argument("--config", type=Path, default=CONFIG_PATH)
-    reconcile.add_argument("--live-campaigns", type=Path, default=LIVE_CAMPAIGNS_PATH)
-    reconcile.add_argument("--output", type=Path, default=RECONCILIATION_PATH)
+    reconcile.add_argument("--live-campaigns", type=Path, default=None)
+    reconcile.add_argument("--output", type=Path, default=None)
     reconcile.add_argument("--name-pattern", default="_cosmos")
     reconcile.set_defaults(func=cmd_reconcile)
 
-    plan = subparsers.add_parser("plan", help="write data/pull-plan.json")
+    plan = subparsers.add_parser("plan", parents=[data_root_parent], help="write pull-plan.json in the data root")
     plan.add_argument("--config", type=Path, default=CONFIG_PATH)
-    plan.add_argument("--output", type=Path, default=PLAN_PATH)
-    plan.add_argument("--reconciliation", type=Path, default=RECONCILIATION_PATH)
+    plan.add_argument("--output", type=Path, default=None)
+    plan.add_argument("--reconciliation", type=Path, default=None)
     plan.add_argument("--enabled-only", action="store_true", help="add ENABLED status filters to structure requests")
     plan.set_defaults(func=cmd_plan)
 
-    validate = subparsers.add_parser("validate", help="validate data/partials files from the pull plan")
-    validate.add_argument("--plan", type=Path, default=PLAN_PATH)
+    write_partial = subparsers.add_parser("write-partial", parents=[data_root_parent], help="write an MCP response into a plan partial file")
+    write_partial.add_argument("--plan", type=Path, default=None)
+    write_partial.add_argument("--discovery", action="store_true", help="use discovery plan instead of pull plan")
+    write_partial.add_argument("--discovery-plan", type=Path, default=None)
+    write_partial.add_argument("--request-index", type=int, default=None)
+    write_partial.add_argument("--response-file", type=Path, default=None)
+    write_partial.add_argument("--response-json", type=str, default=None)
+    write_partial.set_defaults(func=cmd_write_partial)
+
+    materialize = subparsers.add_parser("materialize", parents=[data_root_parent], help="check missing partials and report required MCP requests")
+    materialize.add_argument("--plan", type=Path, default=None)
+    materialize.add_argument("--dry-run", action="store_true", help="print missing requests without generating commands")
+    materialize.set_defaults(func=cmd_materialize)
+
+    validate = subparsers.add_parser("validate", parents=[data_root_parent], help="validate partial files from the pull plan")
+    validate.add_argument("--plan", type=Path, default=None)
     validate.set_defaults(func=cmd_validate)
 
-    finish = subparsers.add_parser("finish", help="validate partials, aggregate, and snapshot")
-    finish.add_argument("--plan", type=Path, default=PLAN_PATH)
+    finish = subparsers.add_parser("finish", parents=[data_root_parent], help="validate partials, aggregate, and snapshot")
+    finish.add_argument("--plan", type=Path, default=None)
     finish.set_defaults(func=cmd_finish)
 
-    parser.set_defaults(func=cmd_plan, config=CONFIG_PATH, output=PLAN_PATH, enabled_only=False)
+    parser.set_defaults(func=cmd_plan, config=CONFIG_PATH, output=None, reconciliation=None, enabled_only=False, data_root=None)
     return parser
 
 

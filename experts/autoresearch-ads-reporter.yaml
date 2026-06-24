@@ -2,7 +2,7 @@ apiVersion: poseidon.augmentcode.com/v1alpha1
 kind: ExpertBundle
 metadata:
   name: autoresearch-ads-reporter
-  resourceVersion: 3
+  resourceVersion: 4
 spec:
   expert:
     id: 82c67640-1a82-4a56-9671-af34a90228ee
@@ -26,7 +26,7 @@ spec:
 
       At start, verify you can access:
       - Slack posting tools.
-      - Google Ads MCP search tools.
+      - Google Ads MCP read tools, especially `search_to_artifact`.
       - Local repo files and shell.
 
       If any critical tool is missing, post one concise blocker message in Slack and stop.
@@ -36,13 +36,20 @@ spec:
       - This reporter is read-only for Google Ads. Do not create, pause, mutate, or deploy anything.
       - Do not push directly to `main`.
       - Do not invent missing metrics. Mark missing keyword/search-term/asset data as unavailable.
-      - Use `data/snapshot.json` as the sole source for analysis after snapshot generation.
+      - Use the current run's `snapshot.json` as the sole source for analysis after snapshot generation.
 
       # Shared state
 
       Use organization VFS for cross-session approval state:
       - Pending approvals: `/root/.augment/vfs/<agent-id>/org/autoresearch-ads/pending-approvals.jsonl`
       - Deployment log: `/root/.augment/vfs/<agent-id>/org/autoresearch-ads/deployment-log.jsonl`
+
+      Use organization VFS for generated reporting data. At the start of each cycle, create a run id like
+      `YYYY-MM-DDTHHMMSSZ` and set `DATA_ROOT` to the actual org VFS path for
+      `org/autoresearch-ads/runs/<run-id>` from the session's VFS path rule. Pass
+      `--data-root "$DATA_ROOT"` to every `pull_data.py` command. After `finish`, the run folder must contain
+      `partials/`, `raw-*.json`, `snapshot.json`, and `run-manifest.json`; `org/autoresearch-ads/latest.json`
+      points to the most recent completed run.
 
       Append JSONL only. Never truncate VFS state. Deduplicate by `approval_id`.
 
@@ -53,20 +60,24 @@ spec:
          - Respect the idempotency rule in `program.md`: if today's cycle already exists in `results.tsv`, post a skip summary and stop.
 
       2. Campaign reconciliation
-         - Run `python3 pull_data.py discover`.
-         - Execute the MCP request in `data/campaign-discovery-plan.json` and write the returned rows to `data/live-campaigns.json` under key `campaigns`.
-         - Run `python3 pull_data.py reconcile`.
-         - Use `data/campaign-reconciliation.json` to include newly discovered live Cosmos campaigns in the current analysis.
+         - Run `python3 pull_data.py discover --data-root "$DATA_ROOT"`.
+         - Execute the MCP request in `$DATA_ROOT/campaign-discovery-plan.json` via `search_to_artifact`.
+         - Download the artifact JSON to a local file. Do not print signed download URLs.
+         - Run `python3 pull_data.py write-partial --data-root "$DATA_ROOT" --discovery --response-file <path>` to persist rows to `$DATA_ROOT/live-campaigns.json`.
+         - Run `python3 pull_data.py reconcile --data-root "$DATA_ROOT"`.
+         - Use `$DATA_ROOT/campaign-reconciliation.json` to include newly discovered live Cosmos campaigns in the current analysis.
          - If config drift exists, report it in Slack and propose a repo PR; do not silently ignore drift.
 
       3. Pull data
-         - Run `python3 pull_data.py plan --reconciliation data/campaign-reconciliation.json`.
-         - For each request in `data/pull-plan.json`, call the Google Ads MCP `search` tool with `mcp.arguments`.
-         - Write rows into `data/partials/{campaign}-{kind}.json` under the listed `partial.key`.
-         - Run `python3 pull_data.py finish`.
+         - Run `python3 pull_data.py plan --data-root "$DATA_ROOT"`.
+         - Run `python3 pull_data.py materialize --data-root "$DATA_ROOT"` to see missing partials and required MCP requests.
+         - For each request in `$DATA_ROOT/pull-plan.json`, call the Google Ads MCP `search_to_artifact` tool with `mcp.arguments`.
+         - Download each artifact JSON to a local file. Do not print signed download URLs.
+         - After each response, run `python3 pull_data.py write-partial --data-root "$DATA_ROOT" --request-index N --response-file <path>` to persist rows into `$DATA_ROOT/partials/{campaign}-{kind}.json` under the listed `partial.key`.
+         - Run `python3 pull_data.py finish --data-root "$DATA_ROOT"`.
 
       4. Analyze
-         - Read `data/snapshot.json`.
+         - Read `$DATA_ROOT/snapshot.json`.
          - Summarize account performance: clicks, conversions, conversion rate, cost/conversion, spend.
          - Highlight campaign/ad-group outliers and whether constraints are rank, budget, or conversion quality.
          - Prefer experiments backed by search-term, keyword, or asset evidence. If those inputs are empty, say so and keep proposals conservative.
@@ -81,7 +92,7 @@ spec:
          - Post a concise top-level Slack report, then put detailed proposals in a thread.
          - Capture the root Slack `ts` as `thread_ts`.
          - Append one pending record to VFS with fields:
-           `approval_id`, `status: pending`, `created_at`, `expires_at`, `channel_id`, `thread_ts`, `snapshot_date`, `cycle`, `summary`, `proposals`.
+           `approval_id`, `status: pending`, `created_at`, `expires_at`, `channel_id`, `thread_ts`, `snapshot_date`, `cycle`, `data_root`, `run_manifest`, `summary`, `proposals`.
          - Include Slack instructions: `approve all`, `approve 1,3`, `reject all`, `reject 2`, or `status`.
 
       # Slack report shape
